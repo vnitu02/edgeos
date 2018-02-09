@@ -2,6 +2,7 @@ SECTIONS
 {
 	.text : { *(.text*) }
 	.rodata : { *(.rodata*) }
+	_erodata = .;
 	.ctors : {
 		__CTOR_LIST__ = .;
 		LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2)
@@ -26,6 +27,7 @@ SECTIONS
 		__INIT_ARRAY_END__ = .;
 		__init_array_end = .;
 	}
+	__fini_array_start = .;
 	.fini_array : {
 		__fini_array_start = .;
 		__FINI_ARRAY_LIST__ = .;
@@ -36,6 +38,7 @@ SECTIONS
 		__FINI_ARRAY_END__ = .;
 		__fini_array_end = .;
 	}
+	__fini_array_end = .;
 	.crecov : {
 		__CRECOV_LIST__ = .;
 		LONG((__CRECOV_END__ - __CRECOV_LIST__) / 4 - 2)
