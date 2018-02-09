@@ -378,7 +378,9 @@ load_service(struct service_symbs *ret_data, unsigned long lower_addr, unsigned 
 		}
 		csg(i)->len        = sect_sz;
 
-		if (csg(i+1)->coalesce) {
+		if (i == 6) {
+			offset = round_up_to_pgd_page(offset + sect_sz);
+                } else if (csg(i+1)->coalesce) {
 			offset += sect_sz;
 		} else {
 			offset = round_up_to_page(offset + sect_sz);
