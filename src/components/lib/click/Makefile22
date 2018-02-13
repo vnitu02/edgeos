@@ -1,0 +1,54 @@
+################################################################################
+# Basics
+################################################################################
+top_srcdir		:= .
+
+################################################################################
+# Click
+################################################################################
+CLICK_ROOT		:= $(realpath $(top_srcdir))
+CLICK_SRC_DIR	 = $(CLICK_ROOT)/lib
+CLICK_OBJS0		 =		\
+	archive.o			\
+	args.o				\
+	atomic.o			\
+	bighashmap_arena.o	\
+	bitvector.o			\
+	confparse.o			\
+	crc32.o				\
+	driver.o			\
+	element.o			\
+	elemfilter.o		\
+	error.o				\
+	etheraddress.o		\
+	gaprate.o			\
+	glue.o				\
+	handlercall.o		\
+	hashallocator.o		\
+	in_cksum.o			\
+	integers.o			\
+	ipaddress.o			\
+	ipflowid.o			\
+	iptable.o			\
+	lexer.o				\
+	master.o			\
+	md5.o				\
+	nameinfo.o			\
+	notifier.o			\
+	packet.o			\
+	router.o			\
+	routerthread.o		\
+	routervisitor.o		\
+	straccum.o			\
+	string.o			\
+	task.o				\
+	timer.o				\
+	timerset.o			\
+	timestamp.o			\
+	variableenv.o
+CLICK_OBJS		 = $(addprefix $(CLICK_SRC_DIR)/,$(CLICK_OBJS0))
+CLICK_ELEMENTS_OBJS		 = $(CLICK_ELEMENTS_OBJS0)
+
+include elementsx.mk
+
+CLICK_ALL=$(CLICK_OBJS) $(CLICK_ELEMENTS_OBJS)

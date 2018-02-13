@@ -21,6 +21,8 @@ volatile int* null_ptr = NULL;
 
 #define SYSCALLS_NUM 378
 
+extern int click_instance_id;
+
 typedef long (*cos_syscall_t)(long a, long b, long c, long d, long e, long f);
 cos_syscall_t cos_syscalls[SYSCALLS_NUM];
 
@@ -44,34 +46,29 @@ write_bytes_to_stdout(const char *buf, size_t count)
 ssize_t
 cos_write(int fd, const void *buf, size_t count)
 {
-	/* You shouldn't write to stdin anyway, so don't bother special casing it */
-	if (fd == 1 || fd == 2) {
-		sl_lock_take(&stdout_lock);
-		write_bytes_to_stdout((const char *) buf, count);
-		sl_lock_release(&stdout_lock);
+	if (fd == 0) {
+		printc("stdin is not supported!\n");
+		return -ENOTSUP;
+	} else if (fd == 1 || fd == 2) {
+		unsigned int i;
+		char *d = (char *)buf;
+		for(i=0; i<count; i++) printc("%c", d[i]);
 		return count;
 	} else {
-		printc("fd: %d not supported!\n", fd);
-		assert(0);
+		printc("write not implemented!\n");
+		return -ENOTSUP;
 	}
 }
 
 ssize_t
 cos_writev(int fd, const struct iovec *iov, int iovcnt)
 {
-	if (fd == 1 || fd == 2) {
-		sl_lock_take(&stdout_lock);
-		int i;
-		ssize_t ret = 0;
-		for(i=0; i<iovcnt; i++) {
-			ret += write_bytes_to_stdout((const void *)iov[i].iov_base, iov[i].iov_len);
-		}
-		sl_lock_release(&stdout_lock);
-		return ret;
-	} else {
-		printc("fd: %d not supported!\n", fd);
-		assert(0);
+	int i;
+	ssize_t ret = 0;
+	for(i=0; i<iovcnt; i++) {
+		ret += cos_write(fd, (const void *)iov[i].iov_base, iov[i].iov_len);
 	}
+	return ret;
 }
 
 long
@@ -111,7 +108,10 @@ cos_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 		return MAP_FAILED;
 	}
 
-	addr = (void *)cos_page_bump_allocn(&cos_defcompinfo_curr_get()->ci, length);
+    if (likely(click_instance_id))
+        addr = cos_sinv(BOOT_CAPTBL_SINV_CAP, 0, click_instance_id, length, 0);
+    else
+	    addr = (void *)cos_page_bump_allocn(&cos_defcompinfo_curr_get()->ci, length);
 	if (!addr){
 		ret = (void *) -1;
 	} else {
@@ -279,8 +279,9 @@ setup_thread_area(struct sl_thd *thread, void* data)
 int
 cos_set_thread_area(void* data)
 {
-	setup_thread_area(sl_thd_curr(), data);
-	return 0;
+    printf("cos_set_thread_area\n");
+    setup_thread_area(sl_thd_curr(), data);
+    return 0;
 }
 
 int
@@ -505,7 +506,7 @@ cos_syscall_handler(int syscall_num, long a, long b, long c, long d, long e, lon
 	/* printc("Making syscall %d\n", syscall_num); */
 	if (!cos_syscalls[syscall_num]){
 		printc("WARNING: Component %ld calling unimplemented system call %d\n", cos_spd_id(), syscall_num);
-		assert(0);
+		//assert(0);
 		return 0;
 	} else {
 		return cos_syscalls[syscall_num](a, b, c, d, e, f);
