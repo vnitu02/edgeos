@@ -18,7 +18,7 @@ chal_tls_update(vaddr_t addr)
 {
 	gdt[SEL_UGSEG / sizeof *gdt] = make_data_desc_at(3, (u32_t)addr);
 	/* force the reload of the segment cache */
-	asm volatile("movl %0, %%gs" : : "q"(SEL_UGSEG));
+    asm volatile("movl %0, %%gs" : : "q"(SEL_UGSEG));
 }
 
 /*

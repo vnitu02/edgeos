@@ -1,0 +1,28 @@
+BUILDDIR := build
+INCLUDE := -I. -I./include -I../../include -I../musl-1.1.11/include -I../libcxx/include -I../libcxx/libstdc++-v3-4.8/include -I../../../kernel/include/shared -I../archives/ck/include
+CXXFLAGS = $(INCLUDE) -O3 -fno-exceptions #-fno-rtti #-fno-threadsafe-statics -Wno-write-strings -m32 -D__x86__ -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -fno-stack-protector -fno-omit-frame-pointer -fno-merge-constants -nostdinc -nostdlib -fno-pic
+OBJ_CC = $(CLICK_ALL)
+
+include Makefile22
+
+.PHONY: all clean cp dir
+
+all: dir libclick.o
+
+clean:
+	@-rm -r $(BUILDDIR)
+
+%.o:%.cc
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
+
+%.o:%.c
+	$(CC) $(CXXFLAGS) -o $@ -c $<
+
+dir:
+	@mkdir -p $(BUILDDIR)
+
+libclick.o: $(OBJ_CC)
+	#@$(AR) rcs $@ $^
+	$(LD) -r -o $@ $^
+	@mv $^ $(BUILDDIR)
+	@mv $@ ../
