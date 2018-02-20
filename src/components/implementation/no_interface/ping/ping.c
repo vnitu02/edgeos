@@ -2,9 +2,12 @@
 #include <pong.h>
 #include <cos_types.h>
 #include <cobj_format.h>
+#include <llboot.h>
 
 void cos_init(void)
 {
+	int r1 = 0, r2 = 0;
+
 	printc("Welcome to the ping component\n");
 
 	printc("Invoking pong interface:\n");
@@ -17,6 +20,11 @@ void cos_init(void)
 	call_arg(1);
 	call_args(1, 2, 3, 4);
 
-	cos_sinv(BOOT_CAPTBL_SINV_CAP, 1, 2, 3, 4);
-	return;
+	printc("\nInvoking pong interface w/ multiple-rets:\n");
+	call_3rets(1, 2, 3, 4, &r1, &r2);
+	printc(" ping=> r1: %d, r2: %d\n\n", r1, r2);
+
+	llboot_comp_init_done();
+
+	while (1) ;
 }
