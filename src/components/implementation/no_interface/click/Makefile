@@ -4,7 +4,7 @@ COMPONENT=clickos.o
 INTERFACES=
 DEPENDENCIES=
 IF_LIB=conf1.o conf2.o
-ADDITIONAL_LIBS=/home/vlad/composite/src/components/lib/libclick.o -lcobj_format -lcos_kernel_api -lcos_defkernel_api $(POSIX_LIB) -lsl -lheap -lsl_thd_static_backend -lsl_mod_fprr -lstdc++ -lsupc++
+ADDITIONAL_LIBS=/home/vlad/composite/src/components/lib/libclick.o -lcobj_format -lcos_kernel_api -lcos_defkernel_api $(POSIX_LIB) -lstdc++ -lsupc++
 
 pre: conf1.o conf2.o all
 
