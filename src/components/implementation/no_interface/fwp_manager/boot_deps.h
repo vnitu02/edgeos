@@ -155,7 +155,7 @@ boot_newcomp_sinv_alloc(spdid_t spdid)
 }
 
 static void
-_alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
+boot_alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
 {
        vaddr_t tls_seg, addr, dst_pg, dst_seg;
 
@@ -184,7 +184,7 @@ boot_newcomp_defcinfo_init(spdid_t spdid)
 	child_aep->thd = cos_initthd_alloc(boot_info, child_ci->comp_cap);
 	assert(child_aep->thd);
 
-       _alloc_tls(boot_info, child_ci, child_aep->thd, PAGE_SIZE);
+       boot_alloc_tls(boot_info, child_ci, child_aep->thd, PAGE_SIZE);
 
 	if (new_comp_cap_info[spdid].is_sched) {
 		child_aep->tc = cos_tcap_alloc(boot_info);
