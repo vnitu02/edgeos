@@ -37,6 +37,7 @@ struct comp_cap_info {
 } new_comp_cap_info[MAX_NUM_SPDS + 1];
 
 int                      schedule[MAX_NUM_SPDS + 1];
+vaddr_t                     end_rodata[MAX_NUM_SPDS + 1];
 volatile size_t          sched_cur;
 
 static inline struct cos_compinfo *

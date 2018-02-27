@@ -205,7 +205,9 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		left = cobj_sect_size(h, i);
 		total += left;
               
-              printc("flags 0x%04x\n", sect->flags);
+              if ((sect->flags & COBJ_SECT_READ) && !(sect->flags & COBJ_SECT_WRITE)){
+                     end_rodata[spdid] = (vaddr_t) start_addr + (dest_daddr - init_daddr);
+              }
 
 		/* Initialize memory. */
 		if (!(sect->flags & COBJ_SECT_KMEM)) {
