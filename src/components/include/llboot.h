@@ -10,6 +10,8 @@
  */
 #define LLBOOT_ERROR 0xFFFF
 
+typedef unsigned short int nfid_t;
+
 enum llboot_cntl {
 	LLBOOT_COMP_INIT_DONE = 0,
 	LLBOOT_COMP_INFO_GET, /* packed! <retval>, <pgtbl, captbl>, <compcap, parent_spdid> */
@@ -20,6 +22,7 @@ enum llboot_cntl {
 	LLBOOT_COMP_CHILDSPDIDS_GET,
 	LLBOOT_COMP_CHILDSCHEDSPDIDS_GET,
        LLBOOT_COMP_MALLOC,
+       LLBOOT_COMP_CONFIDX_GET,
 };
 
 /* assumption: spdids are monotonically increasing from 0 and max MAX_NUM_SPD == 64 */
@@ -87,11 +90,19 @@ llboot_comp_info_get(capid_t rcurfr, spdid_t spdid, pgtblcap_t *pgc, captblcap_t
 }
 
 static inline void
-llboot_comp_malloc(size_t size, void **vaddr)
+llboot_comp_malloc(size_t size, vaddr_t *vaddr)
 {
-       word_t r3 = 0;    
+       word_t unused = 0;
 
-       cos_sinv_3rets(BOOT_CAPTBL_SINV_CAP, 0, LLBOOT_COMP_MALLOC, 0, size, vaddr, &r3);
+       cos_sinv_3rets(BOOT_CAPTBL_SINV_CAP, 0, LLBOOT_COMP_MALLOC, size, 0, vaddr, &unused);
+}
+
+static inline void
+llboot_comp_confidx_get(unsigned int *conf_file_idx)
+{
+       word_t unused = 0;       
+
+       cos_sinv_3rets(BOOT_CAPTBL_SINV_CAP, 0, LLBOOT_COMP_CONFIDX_GET, 0, 0, (word_t *)conf_file_idx, &unused);
 }
 
 static inline int

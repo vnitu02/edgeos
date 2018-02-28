@@ -55,7 +55,6 @@ CLICK_USING_DECLS
 
 extern "C" {
 #include "init.h"
-#include "manager.h"
 }
 
 #define HELP_OPT		300
@@ -267,7 +266,7 @@ extern "C" int click_main(void *data) {
 	struct click_init *init_data = (struct click_init *) data;
 
 	//start = rdtsc();
-    click_static_initialize();
+       click_static_initialize();
 	errh = ErrorHandler::default_handler();
 
 	// parse configuration
@@ -277,7 +276,7 @@ extern "C" int click_main(void *data) {
 
 	//cos_sinv(BOOT_CAPTBL_SINV_CAP, 1, init_data->nf_id, 0, 0);
 
-    //run the configuration file
+       //run the configuration file
 	run_driver();
 
 	return 0;
