@@ -14,8 +14,9 @@ struct mem_seg {
 };
 
 struct click_info {
-	struct cos_defcompinfo def_cinfo;
-       unsigned int conf_file_idx;       
+	struct cos_defcompinfo      def_cinfo;
+       unsigned int                conf_file_idx;
+       struct sl_thd               *initaep;
 } chld_infos[MAX_NUM_NFs];
 
 void fwp_fork(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset);

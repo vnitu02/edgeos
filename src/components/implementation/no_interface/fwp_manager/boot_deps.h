@@ -411,23 +411,20 @@ boot_comp_info_get(capid_t curresfr, spdid_t spdid, pgtblcap_t *pgc, captblcap_t
 }
 
 static vaddr_t
-boot_comp_malloc(spdid_t spdid, size_t size)
+boot_comp_malloc(struct click_info *ci, size_t size)
 {
        /*FIXME to get compinfo from click_info*/
        struct cos_compinfo *boot_info = boot_spd_compinfo_get(0);
-       struct cos_compinfo *a_ci;
+       struct cos_compinfo *chld_info = cos_compinfo_get(&ci->def_cinfo);
        vaddr_t vaddr, src_seg, dst_pg, i;
-
-       a_ci  = boot_spd_compinfo_get(spdid);
-       assert(a_ci);
 
        src_seg = (vaddr_t) cos_page_bump_allocn(boot_info, size);
        assert(src_seg);
-       vaddr = cos_mem_alias(a_ci, boot_info, src_seg);
+       vaddr = cos_mem_alias(chld_info, boot_info, src_seg);
        assert(vaddr);
 
        for (i = PAGE_SIZE; i < size; i += PAGE_SIZE) {
-              dst_pg = cos_mem_alias(a_ci, boot_info, (src_seg + i));
+              dst_pg = cos_mem_alias(chld_info, boot_info, (src_seg + i));
               assert(dst_pg);
        }
 
@@ -511,7 +508,7 @@ llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u3
        case LLBOOT_COMP_MALLOC:
        {
               vaddr_t vaddr;
-              vaddr = boot_comp_malloc(curr, arg3);
+              vaddr = boot_comp_malloc((struct click_info *)curr, arg3);
               *ret2 = (u32_t)vaddr;
 
               break;
