@@ -1,5 +1,5 @@
 ASM_OBJS=s_stub.o
-COMPONENT=fwp_manager.o
+COMPONENT=fwp_mng.o
 INTERFACES=
 DEPENDENCIES=
 IF_LIB=

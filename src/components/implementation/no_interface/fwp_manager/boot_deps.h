@@ -9,6 +9,8 @@
 #include <llboot.h>
 #include <res_spec.h>
 
+#include "fwp_manager.h"
+
 #define UNDEF_SYMBS 64
 
 /* Assembly function for sinv from new component */
@@ -38,6 +40,7 @@ struct comp_cap_info {
 
 int                      schedule[MAX_NUM_SPDS + 1];
 vaddr_t                     end_rodata[MAX_NUM_SPDS + 1];
+unsigned long               comp_info_offset[MAX_NUM_SPDS + 1];
 volatile size_t          sched_cur;
 
 static inline struct cos_compinfo *
@@ -410,6 +413,7 @@ boot_comp_info_get(capid_t curresfr, spdid_t spdid, pgtblcap_t *pgc, captblcap_t
 static vaddr_t
 boot_comp_malloc(spdid_t spdid, size_t size)
 {
+       /*FIXME to get compinfo from click_info*/
        struct cos_compinfo *boot_info = boot_spd_compinfo_get(0);
        struct cos_compinfo *a_ci;
        vaddr_t vaddr, src_seg, dst_pg, i;
@@ -428,6 +432,14 @@ boot_comp_malloc(spdid_t spdid, size_t size)
        }
 
        return vaddr;
+}
+
+static unsigned int
+boot_comp_confidx_get(unsigned long curr)
+{
+       struct click_info *child_info = (struct click_info *) curr;
+
+       return child_info->conf_file_idx;
 }
 
 static int 
@@ -490,121 +502,25 @@ boot_comp_childspds_get(int spdid, u64_t *idbits)
 }
 
 u32_t
-llboot_entry(spdid_t curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u32_t *ret3)
+llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u32_t *ret3)
 {
 	u32_t ret1 = 0;
 	u32_t error = (1 << 16) - 1;
 
 	switch(op) {
-	case LLBOOT_COMP_INIT_DONE:
-	{
-		boot_thd_done();
-		break;
-	}
-	case LLBOOT_COMP_INFO_GET:
-	{
-		pgtblcap_t pgc;
-		captblcap_t capc;
-		compcap_t cc;
-		spdid_t psid;
-		int ret;
-
-		/* only resource manager is allowed to use this function */
-		assert(curr == resmgr_spdid);
-		ret = boot_comp_info_get(arg4, arg3, &pgc, &capc, &cc, &psid);
-		if (ret == BOOT_CI_GET_ERROR) { 
-			ret1 = error;
-			break;
-		}
-
-		ret1  = ret;
-		*ret2 = (pgc << 16) | capc;
-		*ret3 = (cc << 16) | psid;
-
-		break;
-	}
-	case LLBOOT_COMP_INFO_NEXT:
-	{
-		pgtblcap_t pgc;
-		captblcap_t capc;
-		compcap_t cc;
-		spdid_t csid, psid;
-		int ret;
-
-		/* only resource manager is allowed to use this function */
-		assert(curr == resmgr_spdid);
-		ret = boot_comp_info_iter(arg4, &csid, &pgc, &capc, &cc, &psid);
-		if (ret == BOOT_CI_GET_ERROR) { 
-			ret1 = error;
-			break;
-		}
-
-		ret1  = (csid << 16) | ret;
-		*ret2 = (pgc << 16) | capc;
-		*ret3 = (cc << 16) | psid;
-
-		break;
-	}
-	case LLBOOT_COMP_FRONTIER_GET:
-	{
-		vaddr_t vas;
-		capid_t caps;
-		int ret;
-
-		/* only resource manager is allowed to use this function */
-		assert(curr == resmgr_spdid);
-		ret = boot_comp_frontier_get(arg3, &vas, &caps);
-		if (ret) { 
-			ret1 = error;
-			break;
-		}
-
-		*ret2 = ((caps << 16) >> 16);
-		*ret3 = vas;
-
-		break;
-	}
-	case LLBOOT_COMP_INITTHD_GET:
-	{
-		capid_t capfr;
-
-		/* only resource manager is allowed to use this function */
-		assert(curr == resmgr_spdid);
-		/* init-thread of components that booter created..*/
-		thdcap_t t = boot_comp_initthd_get(arg3, &capfr);
-
-		ret1 = t;
-		*ret2 = capfr;
-
-		break;
-	}
-	case LLBOOT_COMP_CHILDSPDIDS_GET:
-	{
-		u64_t idbits = 0;
-
-		if (curr != resmgr_spdid) assert(curr == arg3);
-		ret1 = boot_comp_childspds_get(arg3, &idbits);
-		*ret2 = (u32_t)idbits;
-		*ret3 = (u32_t)(idbits >> 32);
-
-		break;
-	}
-	case LLBOOT_COMP_CHILDSCHEDSPDIDS_GET:
-	{
-		u64_t idbits = 0;
-
-		if (curr != resmgr_spdid) assert(curr == arg3);
-		ret1 = boot_comp_childschedspds_get(arg3, &idbits);
-		*ret2 = (u32_t)idbits;
-		*ret3 = (u32_t)(idbits >> 32);
-
-		break;
-	}
        case LLBOOT_COMP_MALLOC:
        {
               vaddr_t vaddr;
               vaddr = boot_comp_malloc(curr, arg3);
               *ret2 = (u32_t)vaddr;
+
+              break;
+       }
+       case LLBOOT_COMP_CONFIDX_GET:
+       {
+              unsigned int conf_file_idx;
+              conf_file_idx = boot_comp_confidx_get(curr);
+              *ret2 = (u32_t)conf_file_idx;
 
               break;
        }

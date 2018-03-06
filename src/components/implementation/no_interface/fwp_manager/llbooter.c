@@ -4,6 +4,7 @@
 #include <cos_defkernel_api.h>
 
 #include "boot_deps.h"
+#include "fwp_manager.h"
 
 #define USER_CAPS_SYMB_NAME "ST_user_caps"
 
@@ -144,13 +145,12 @@ boot_spd_symbs(struct cobj_header *h, spdid_t spdid, vaddr_t *comp_info, vaddr_t
 }
 
 static int
-boot_process_cinfo(struct cobj_header *h, spdid_t spdid, vaddr_t heap_val, char *mem, vaddr_t symb_addr)
+boot_process_cinfo(struct cobj_header *h, spdid_t spdid, vaddr_t heap_val, 
+                     struct cos_component_information *ci, vaddr_t symb_addr)
 {
-	int                               i;
-	struct cos_component_information *ci;
+	int    i;
 
 	assert(symb_addr == round_to_page(symb_addr));
-	ci = (struct cos_component_information *)(mem);
 
 	if (!ci->cos_heap_ptr) ci->cos_heap_ptr = heap_val;
 
@@ -204,11 +204,13 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		/* how much is left to copy? */
 		left = cobj_sect_size(h, i);
 		total += left;
-              
-              if ((sect->flags & COBJ_SECT_READ) && !(sect->flags & COBJ_SECT_WRITE)){
-                     end_rodata[spdid] = (vaddr_t) start_addr + (dest_daddr - init_daddr);
-              }
+              printc("vaddr %p flags %04x size %04x\n", start_addr + (dest_daddr - init_daddr), sect->flags, left);
 
+              if ((sect->flags & COBJ_SECT_READ) && !(sect->flags & COBJ_SECT_WRITE) && left != 0){
+                     end_rodata[spdid] = (vaddr_t) start_addr + (dest_daddr - init_daddr) + left;
+                     printc("erodata %lx\n", round_up_to_page(end_rodata[spdid]));
+              }
+    
 		/* Initialize memory. */
 		if (!(sect->flags & COBJ_SECT_KMEM)) {
 			if (sect->flags & COBJ_SECT_ZEROS) {
@@ -221,9 +223,14 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		if (sect->flags & COBJ_SECT_CINFO) {
 			assert(left == PAGE_SIZE);
 			assert(comp_info == dest_daddr);
-			boot_process_cinfo(h, spdid, boot_spd_end(h), start_addr + (comp_info - init_daddr), comp_info);
-			ci = (struct cos_component_information *)(start_addr + (comp_info - init_daddr));
-			new_comp_cap_info[h->id].upcall_entry = ci->cos_upcall_entry;
+                     
+                     ci = (struct cos_component_information *)(start_addr + (comp_info - init_daddr));
+			boot_process_cinfo(h, spdid, boot_spd_end(h), ci, comp_info);
+		
+                     comp_info_offset[spdid] = (unsigned long) ci - round_up_to_page(end_rodata[spdid]);
+                     assert(comp_info_offset[spdid]>0);
+	
+                     new_comp_cap_info[h->id].upcall_entry = ci->cos_upcall_entry;
 		}
 
 	}
@@ -459,6 +466,20 @@ boot_child_info(void)
 	}
 }
 
+static void
+prepare_and_fork(vaddr_t start_addr, spdid_t spdid)
+{
+       struct cos_compinfo *booter_cinfo = boot_spd_compinfo_get(0);
+       struct mem_seg text, data;
+
+       text.addr = new_comp_cap_info[spdid].vaddr_mapped_in_booter;
+       text.size = end_rodata[spdid] - new_comp_cap_info[spdid].vaddr_mapped_in_booter;
+       data.addr = round_up_to_page(end_rodata[spdid]);
+       data.size = booter_cinfo->vas_frontier - data.addr;
+
+       fwp_fork(&text, &data, start_addr, comp_info_offset[spdid]);
+}
+
 void
 cos_init(void)
 {
@@ -491,5 +512,7 @@ cos_init(void)
 	boot_create_cap_system();
 	boot_child_info();
 
-	boot_done();
+       prepare_and_fork(cobj_sect_get(h, 0)->vaddr, h->id);
+
+	//boot_done();
 }
