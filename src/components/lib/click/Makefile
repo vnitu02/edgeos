@@ -7,7 +7,7 @@ include Makefile22
 
 .PHONY: all clean cp dir
 
-all: dir libclick.o
+all: dir libclick.a
 
 clean:
 	@-rm -r $(BUILDDIR)
@@ -21,8 +21,8 @@ clean:
 dir:
 	@mkdir -p $(BUILDDIR)
 
-libclick.o: $(OBJ_CC)
-	#@$(AR) rcs $@ $^
-	$(LD) -r -o $@ $^
+libclick.a: $(OBJ_CC)
+	@$(AR) rcs $@ $^
+	#$(LD) -r -o $@ $^
 	@mv $^ $(BUILDDIR)
 	@mv $@ ../
