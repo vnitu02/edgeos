@@ -322,7 +322,7 @@ boot_done(void)
 
 	printc("Booter: done creating system.\n");
 	printc("********************************\n");
-	cos_thd_switch(schedule[sched_cur]);
+	/*cos_thd_switch(schedule[sched_cur]);
 
 	if (root_spdid) {
 		printc("Root scheduler is %u\n", root_spdid);
@@ -336,7 +336,7 @@ boot_done(void)
 		ret = cos_tcap_transfer(sl_thd_rcvcap(root), sl__globals()->sched_tcap, TCAP_RES_INF, LLBOOT_ROOT_PRIO);
 		assert(ret == 0);
 #endif
-	}
+	}*/
 
 	printc("Starting llboot sched loop\n");
 	sl_sched_loop();
@@ -431,12 +431,48 @@ boot_comp_malloc(struct click_info *ci, size_t size)
        return vaddr;
 }
 
-static unsigned int
+static int
 boot_comp_confidx_get(unsigned long curr)
 {
        struct click_info *child_info = (struct click_info *) curr;
 
        return child_info->conf_file_idx;
+}
+
+/*
+ * core function for checkpointing a Click component
+ */
+static void 
+boot_comp_checkpoint(unsigned long curr, unsigned int nfid)
+{
+       vaddr_t src_seg, addr;
+       size_t vm_range;
+       struct cos_compinfo *parent_cinfo_l = boot_spd_compinfo_get(0);
+       struct click_info *child_info = (struct click_info *) curr;
+
+       /*
+       * duplicate memory from this_chld_vm_base to vas_frontier
+       */
+       vm_range = parent_cinfo_l->vas_frontier - child_info->booter_vaddr;
+       addr = (vaddr_t) cos_page_bump_allocn(parent_cinfo_l, vm_range);
+       assert(addr);
+
+       memcpy(addr, child_info->booter_vaddr, vm_range);
+
+       /*
+       * The id represents the COMPONENT ID that is checkpointed.
+       * Example: template[1] represnts the checkpoint of component 1
+       */
+       templates[nfid].addr = addr;
+       templates[nfid].size = vm_range;
+
+       printc("\tCheckpointing click component's %d data %lx (range:%lx)\n", nfid,
+                     templates[nfid].addr, templates[nfid].size);
+
+       /*
+       * switch to the booter component
+       */
+       cos_thd_switch(BOOT_CAPTBL_SELF_INITTHD_BASE);
 }
 
 static int 
@@ -515,13 +551,19 @@ llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u3
        }
        case LLBOOT_COMP_CONFIDX_GET:
        {
-              unsigned int conf_file_idx;
+              int conf_file_idx;
               conf_file_idx = boot_comp_confidx_get(curr);
               *ret2 = (u32_t)conf_file_idx;
 
               break;
        }
-	default:
+	case LLBOOT_COMP_CHECKPOINT:
+       {
+              boot_comp_checkpoint(curr, arg3);
+
+              break;
+       }
+       default:
 	{
 		assert(0);
 

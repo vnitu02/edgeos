@@ -56,7 +56,7 @@ fwp_ci_get(struct cobj_header *h, vaddr_t *comp_info)
  * COS internals for creating a new component
  */
 static void
-_fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, vaddr_t vm_base)
+_fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, vaddr_t vm_base, int conf_file_idx)
 {
        struct cos_aep_info *fork_aep = cos_sched_aep_get(&fork_info->def_cinfo);
        struct cos_compinfo *fork_cinfo = cos_compinfo_get(&fork_info->def_cinfo);
@@ -74,6 +74,7 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, vad
        cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, vm_base,
                             BOOT_CAPTBL_FREE, parent_cinfo_l);
 
+       fork_info->conf_file_idx = conf_file_idx;
 }
 
 static vaddr_t
@@ -157,6 +158,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
        pgtblcap_t  ckpt;
        sinvcap_t sinv;
 
+       chld_info->booter_vaddr = allocated_data_seg;
+
        ci = (void *) allocated_data_seg + comp_info_offset;
        ci->cos_this_spd_id = next_nfid;
 
@@ -180,23 +183,32 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
        copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
 
-       next_nfid++;
        cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
 }
 
 /*
  * fork a new click component using the configuration file at *conf_str
  */
-void 
-fwp_fork(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset)
+static void 
+fwp_fork(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset, int conf_file_idx)
 {
        struct cos_compinfo *parent_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
        struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_infos[next_nfid].def_cinfo);
        vaddr_t allocated_data_seg;
        
-       _fwp_fork(parent_cinfo, &chld_infos[next_nfid], start_addr);
+       _fwp_fork(parent_cinfo, &chld_infos[next_nfid], start_addr, conf_file_idx);
 
        allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, start_addr); 
 
        _fwp_fork_cont(parent_cinfo, &chld_infos[next_nfid], allocated_data_seg, comp_info_offset);
+}
+
+void
+fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset)
+{
+       fwp_fork(text_seg, data_seg, start_addr, comp_info_offset, 0);
+       next_nfid++;
+       fwp_fork(text_seg, &templates[next_nfid-1], start_addr, comp_info_offset, -1);
+       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid].initaep));
+       next_nfid++;
 }

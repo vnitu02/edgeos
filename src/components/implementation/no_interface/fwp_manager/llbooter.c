@@ -204,7 +204,6 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		/* how much is left to copy? */
 		left = cobj_sect_size(h, i);
 		total += left;
-              printc("vaddr %p flags %04x size %04x\n", start_addr + (dest_daddr - init_daddr), sect->flags, left);
 
               if ((sect->flags & COBJ_SECT_READ) && !(sect->flags & COBJ_SECT_WRITE) && left != 0){
                      end_rodata[spdid] = (vaddr_t) start_addr + (dest_daddr - init_daddr) + left;
@@ -467,7 +466,7 @@ boot_child_info(void)
 }
 
 static void
-prepare_and_fork(vaddr_t start_addr, spdid_t spdid)
+fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid)
 {
        struct cos_compinfo *booter_cinfo = boot_spd_compinfo_get(0);
        struct mem_seg text, data;
@@ -477,7 +476,7 @@ prepare_and_fork(vaddr_t start_addr, spdid_t spdid)
        data.addr = round_up_to_page(end_rodata[spdid]);
        data.size = booter_cinfo->vas_frontier - data.addr;
 
-       fwp_fork(&text, &data, start_addr, comp_info_offset[spdid]);
+       fwp_test(&text, &data, start_addr, comp_info_offset[spdid]);
 }
 
 void
@@ -512,7 +511,7 @@ cos_init(void)
 	boot_create_cap_system();
 	boot_child_info();
 
-       prepare_and_fork(cobj_sect_get(h, 0)->vaddr, h->id);
+       fwp_prepare_and_test(cobj_sect_get(h, 0)->vaddr, h->id); 
 
-	//boot_done();
+	boot_done();
 }

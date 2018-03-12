@@ -14,11 +14,14 @@ struct mem_seg {
 };
 
 struct click_info {
-	struct cos_defcompinfo      def_cinfo;
-       unsigned int                conf_file_idx;
+       struct cos_defcompinfo      def_cinfo;
+       int                         conf_file_idx;       /*-1 means that we forked from template*/
        struct sl_thd               *initaep;
+       vaddr_t                     booter_vaddr;
 } chld_infos[MAX_NUM_NFs];
 
-void fwp_fork(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset);
+struct mem_seg templates[MAX_NUM_NFs];
+
+void fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset);
 
 #endif /*FWP_MANAGER_H*/
