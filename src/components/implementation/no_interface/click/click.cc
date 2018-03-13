@@ -54,6 +54,7 @@
 CLICK_USING_DECLS
 
 extern "C" {
+#include <llboot.h>
 #include "init.h"
 }
 
@@ -274,7 +275,7 @@ extern "C" int click_main(void *data) {
 	if (!router)
 		return 1;
 
-	//cos_sinv(BOOT_CAPTBL_SINV_CAP, 1, init_data->nf_id, 0, 0);
+       llboot_comp_checkpoint(init_data->nf_id);
 
        //run the configuration file
 	run_driver();
