@@ -23,6 +23,7 @@ enum llboot_cntl {
 	LLBOOT_COMP_CHILDSCHEDSPDIDS_GET,
        LLBOOT_COMP_MALLOC,
        LLBOOT_COMP_CONFIDX_GET,
+       LLBOOT_COMP_CHECKPOINT,
 };
 
 /* assumption: spdids are monotonically increasing from 0 and max MAX_NUM_SPD == 64 */
@@ -103,6 +104,14 @@ llboot_comp_confidx_get(unsigned int *conf_file_idx)
        word_t unused = 0;       
 
        cos_sinv_3rets(BOOT_CAPTBL_SINV_CAP, 0, LLBOOT_COMP_CONFIDX_GET, 0, 0, (word_t *)conf_file_idx, &unused);
+}
+
+static inline void
+llboot_comp_checkpoint(unsigned int nfid)
+{
+       word_t unused1 = 0, unused2 = 0;
+
+       cos_sinv_3rets(BOOT_CAPTBL_SINV_CAP, 0, LLBOOT_COMP_CHECKPOINT, nfid, 0, &unused1, &unused2);
 }
 
 static inline int
