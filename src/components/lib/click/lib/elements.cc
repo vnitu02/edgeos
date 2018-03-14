@@ -150,9 +150,8 @@
 #include "../elements/standard/rrsched.hh"
 #include "../elements/standard/rrswitch.hh"
 #include <click/standard/scheduleinfo.hh>
-
-//#include "../elements/cos/toshmem.hh"
-//#include "../elements/cos/fromshmem.hh"
+#include "../elements/eos/toshmem.hh"
+#include "../elements/eos/fromshmem.hh"
 #include "../elements/standard/setannobyte.hh"
 #include "../elements/standard/setcrc32.hh"
 #include "../elements/standard/setpackettype.hh"
@@ -451,9 +450,8 @@ beetlemonkey(uintptr_t heywood)
    case 227: return new SpinlockInfo;
    case 228: return new SpinlockRelease;
    case 229: return new StaticThreadSched;
-
-//   case 230: return new ToShmem;
-//   case 231: return new FromShmem;
+   case 230: return new ToShmem;
+   case 231: return new FromShmem;
    default: return 0;
   }
 }
@@ -551,8 +549,8 @@ click_export_elements()
   (void) click_add_element_type_stable("StripIPHeader", beetlemonkey, 81);
   (void) click_add_element_type_stable("TruncateIPPayload", beetlemonkey, 82);
   (void) click_add_element_type_stable("UnstripIPHeader", beetlemonkey, 83);
-  /*(void) click_add_element_type_stable("FromDevice", beetlemonkey, 84);
-  (void) click_add_element_type_stable("ToDevice", beetlemonkey, 85);*/
+  (void) click_add_element_type_stable("FromDevice", beetlemonkey, 84);
+  (void) click_add_element_type_stable("ToDevice", beetlemonkey, 85);
   (void) click_add_element_type_stable("SimpleIdle", beetlemonkey, 86);
   (void) click_add_element_type_stable("SimplePrioSched", beetlemonkey, 87);
   (void) click_add_element_type_stable("SimplePullSwitch", beetlemonkey, 88);
@@ -697,9 +695,8 @@ click_export_elements()
   (void) click_add_element_type_stable("SpinlockInfo", beetlemonkey, 227);
   (void) click_add_element_type_stable("SpinlockRelease", beetlemonkey, 228);
   (void) click_add_element_type_stable("StaticThreadSched", beetlemonkey, 229);
-
-//  (void) click_add_element_type_stable("ToShmem", beetlemonkey, 230);
-//  (void) click_add_element_type_stable("FromShmem", beetlemonkey, 231);
+  (void) click_add_element_type_stable("ToShmem", beetlemonkey, 230);
+  (void) click_add_element_type_stable("FromShmem", beetlemonkey, 231);
   CLICK_DMALLOC_REG("nXXX");
 }
 

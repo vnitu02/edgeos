@@ -45,7 +45,8 @@ CLICK_OBJS0		 =		\
 	timer.o				\
 	timerset.o			\
 	timestamp.o			\
-	variableenv.o
+	variableenv.o			\
+	elements.o
 CLICK_OBJS		 = $(addprefix $(CLICK_SRC_DIR)/,$(CLICK_OBJS0))
 CLICK_ELEMENTS_OBJS		 = $(CLICK_ELEMENTS_OBJS0)
 
