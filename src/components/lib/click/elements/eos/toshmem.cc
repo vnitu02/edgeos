@@ -46,17 +46,11 @@
 #include <click/task.hh>
 #include <stdio.h>
 
-/*function pointer for ipc*/
-extern void (*next_call)(void);
-
-ck_ring_t *output_ring;
-static int entries;
-
 CLICK_DECLS
 
 ToShmem::ToShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR + sizeof(ck_ring_t)), _shmem_size(
-		DEFAULT_SHMEM_SIZE - sizeof(ck_ring_t)), _count(0), _task(this) {
+		_shmem_ptr(DEFAULT_SHMEM_ADDR), _shmem_size(DEFAULT_SHMEM_SIZE), 
+                            _count(0), _task(this) {
 }
 
 ToShmem::~ToShmem() {
@@ -64,24 +58,13 @@ ToShmem::~ToShmem() {
 
 int ToShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
 	if (Args(conf, this, errh).read_p("SHMEM_PTR", IntArg(), _shmem_ptr).read_p(
-			"SHEME_SIZE", IntArg(), _shmem_size).complete() < 0)
+			"SHMEM_SIZE", IntArg(), _shmem_size).complete() < 0)
 		return -1;
-
-	/*TODO hardwire*/
-	entries = 8;
-	if (entries <= 4 || (entries & (entries - 1))) {
-		return errh->error("ERROR: Size must be a power of 2 greater than 4.\n");
-	}
-
-	//errh->warning("Address of the pointer %p ring %p\n", output_ring, &ring);
 
 	return 0;
 }
 
 int ToShmem::initialize(ErrorHandler *errh) {
-
-	ck_ring_init(output_ring, entries);
-
 	if (input_is_pull(0)) {
 		ScheduleInfo::initialize_task(this, &_task, errh);
 	}
@@ -90,30 +73,14 @@ int ToShmem::initialize(ErrorHandler *errh) {
 }
 
 void ToShmem::cleanup(CleanupStage stage) {
-	next_call();
 }
 
 void ToShmem::push(int port, Packet *p) {
-	bool r = ck_ring_enqueue_spsc(output_ring, (ck_ring_buffer *) _shmem_ptr, p);
-	assert(r==true);
-	next_call();
-	//checked_output_push(0, p);
+       printf("next_call_sinv\n");
+       next_call_sinv();
 }
 
 bool ToShmem::run_task(Task *) {
-	bool r;
-	Packet* p;
-
-	for ( ; ; ) {
-		p = input(0).pull();
-		if (!p)
-			break;
-
-		r = ck_ring_enqueue_spsc(output_ring, (ck_ring_buffer *) _shmem_ptr, p);
-		assert(r==true);
-		checked_output_push(0, p);
-	}
-
 	return 0;
 }
 
