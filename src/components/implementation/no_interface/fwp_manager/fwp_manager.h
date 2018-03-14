@@ -22,6 +22,7 @@ struct click_info {
 
 struct mem_seg templates[MAX_NUM_NFs];
 
-void fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, unsigned long comp_info_offset);
+void fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, 
+              unsigned long comp_info_offset, vaddr_t sinv_next_call);
 
 #endif /*FWP_MANAGER_H*/

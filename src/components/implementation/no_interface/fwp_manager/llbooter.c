@@ -118,7 +118,7 @@ boot_spd_end(struct cobj_header *h)
 }
 
 int
-boot_spd_symbs(struct cobj_header *h, spdid_t spdid, vaddr_t *comp_info, vaddr_t *user_caps)
+boot_spd_symbs(struct cobj_header *h, spdid_t spdid, vaddr_t *comp_info, vaddr_t *user_caps, vaddr_t *sinv_next_call)
 {
 	int i = 0;
 
@@ -133,6 +133,8 @@ boot_spd_symbs(struct cobj_header *h, spdid_t spdid, vaddr_t *comp_info, vaddr_t
 			*comp_info = symb->vaddr;
 			break;
 		case COBJ_SYMB_EXPORTED:
+                     if (!strcmp(symb->name, "__inv_next_call"))
+                            *sinv_next_call = symb->vaddr;
 			break;
 		case COBJ_SYMB_COMP_PLT:
 			*user_caps = symb->vaddr;
@@ -408,7 +410,7 @@ boot_comp_name_parse(spdid_t s, const char *strname)
 }
 
 static void
-boot_create_cap_system(void)
+boot_create_cap_system(vaddr_t *sinv_next_call)
 {
 	unsigned int i;
 
@@ -430,7 +432,7 @@ boot_create_cap_system(void)
 		boot_comp_name_parse(spdid, h->name);
 		boot_compinfo_init(spdid, &ct, &pt, sect->vaddr);
 
-		if (boot_spd_symbs(h, spdid, &ci, &new_comp_cap_info[spdid].vaddr_user_caps)) BUG();
+		if (boot_spd_symbs(h, spdid, &ci, &new_comp_cap_info[spdid].vaddr_user_caps, sinv_next_call)) BUG();
 		if (boot_spd_inv_cap_alloc(h, spdid)) BUG();
 		if (boot_comp_map(h, spdid, ci, pt)) BUG();
 
@@ -466,7 +468,7 @@ boot_child_info(void)
 }
 
 static void
-fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid)
+fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid, vaddr_t sinv_next_call)
 {
        struct cos_compinfo *booter_cinfo = boot_spd_compinfo_get(0);
        struct mem_seg text, data;
@@ -476,7 +478,7 @@ fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid)
        data.addr = round_up_to_page(end_rodata[spdid]);
        data.size = booter_cinfo->vas_frontier - data.addr;
 
-       fwp_test(&text, &data, start_addr, comp_info_offset[spdid]);
+       fwp_test(&text, &data, start_addr, comp_info_offset[spdid], sinv_next_call);
 }
 
 void
@@ -508,10 +510,10 @@ cos_init(void)
 	printc("num cobjs: %d\n", num_cobj);
 	boot_find_cobjs(h, num_cobj);
 	boot_bootcomp_init();
-	boot_create_cap_system();
+	boot_create_cap_system(&sinv_next[h->id]);
 	boot_child_info();
 
-       fwp_prepare_and_test(cobj_sect_get(h, 0)->vaddr, h->id); 
+       fwp_prepare_and_test(cobj_sect_get(h, 0)->vaddr, h->id, sinv_next[h->id]); 
 
 	boot_done();
 }

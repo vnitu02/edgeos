@@ -39,9 +39,15 @@ struct comp_cap_info {
 } new_comp_cap_info[MAX_NUM_SPDS + 1];
 
 int                      schedule[MAX_NUM_SPDS + 1];
-vaddr_t                     end_rodata[MAX_NUM_SPDS + 1];
 unsigned long               comp_info_offset[MAX_NUM_SPDS + 1];
 volatile size_t          sched_cur;
+
+/*
+ * These are probably used ony in a clickos.o component
+ * but define them as an array to avoid bugs.
+ */
+vaddr_t                     end_rodata[MAX_NUM_SPDS + 1];
+vaddr_t                     sinv_next[MAX_NUM_SPDS + 1];
 
 static inline struct cos_compinfo *
 boot_spd_compinfo_get(spdid_t spdid)
@@ -457,7 +463,7 @@ boot_comp_checkpoint(unsigned long curr, unsigned int nfid)
        addr = (vaddr_t) cos_page_bump_allocn(parent_cinfo_l, vm_range);
        assert(addr);
 
-       memcpy(addr, child_info->booter_vaddr, vm_range);
+       memcpy((void *)addr, (void *)child_info->booter_vaddr, vm_range);
 
        /*
        * The id represents the COMPONENT ID that is checkpointed.
@@ -466,7 +472,7 @@ boot_comp_checkpoint(unsigned long curr, unsigned int nfid)
        templates[nfid].addr = addr;
        templates[nfid].size = vm_range;
 
-       printc("\tCheckpointing click component's %d data %lx (range:%lx)\n", nfid,
+       printc("\tCheckpointing click component's %d data %lx (range:%04x)\n", nfid,
                      templates[nfid].addr, templates[nfid].size);
 
        /*
