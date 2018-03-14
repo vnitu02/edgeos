@@ -47,14 +47,11 @@
 #include <stdio.h>
 #include <llprint.h>
 
-ck_ring_t *input_ring;
-static int entries;
-
 CLICK_DECLS
 
 FromShmem::FromShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR + sizeof(ck_ring_t)), _shmem_size(
-		DEFAULT_SHMEM_SIZE - sizeof(ck_ring_t)), _count(0), _task(this) {
+		_shmem_ptr(DEFAULT_SHMEM_ADDR), _shmem_size(DEFAULT_SHMEM_SIZE), 
+                            _count(0), _task(this) {
 }
 
 FromShmem::~FromShmem() {
@@ -65,44 +62,22 @@ int FromShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
 			"SHEME_SIZE", IntArg(), _shmem_size).complete() < 0)
 		return -1;
 
-	/*TODO hardwire*/
-	entries = 8;
-	if (entries <= 4 || (entries & (entries - 1))) {
-		return errh->error("ERROR: Size must be a power of 2 greater than 4.\n");
-	}
-
 	return 0;
 }
 
 int FromShmem::initialize(ErrorHandler *errh) {
-	ck_ring_init(input_ring, entries);
 	ScheduleInfo::initialize_task(this, &_task, errh);
 	return 0;
 }
 
 void FromShmem::cleanup(CleanupStage stage) {
-
 }
 
 void FromShmem::push(int port, Packet *p) {
-	Packet *pack;
-	bool r = ck_ring_dequeue_spsc(input_ring, (ck_ring_buffer *) _shmem_ptr, &pack);
-	assert(r==true);
-	checked_output_push(0, pack);
 }
 
 bool FromShmem::run_task(Task *) {
-	bool r;
-	Packet* p;
-
-	for (;;) {
-		r = ck_ring_dequeue_spsc(input_ring, (ck_ring_buffer *)_shmem_ptr, &p);
-		if (!r)
-			break;
-		printc("packet: %p\n", p);
-		output(0).push(p);
-	}
-
+       output(0).push((Packet *)_shmem_ptr);
 	return 0;
 }
 

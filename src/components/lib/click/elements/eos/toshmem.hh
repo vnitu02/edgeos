@@ -46,7 +46,7 @@
 #include <click/task.hh>
 
 extern "C" {
-#include <ck_ring.h>
+#include "utils.h"
 }
 
 CLICK_DECLS

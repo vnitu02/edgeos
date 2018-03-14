@@ -45,10 +45,6 @@
 #include <click/error.hh>
 #include <click/task.hh>
 
-extern "C" {
-#include <ck_ring.h>
-}
-
 CLICK_DECLS
 
 /*
