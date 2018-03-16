@@ -69,3 +69,4 @@ int printk_register_handler(void (*handler)(const char *));
 void khalt(void);
 
 #endif /* KERNEL_H */
+
