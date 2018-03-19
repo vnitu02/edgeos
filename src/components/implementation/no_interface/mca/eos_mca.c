@@ -39,7 +39,7 @@ mca_conn_collect(struct mca_conn *conn)
 }
 
 static inline void
-mca_copy(void *src, int sl, void *dst)
+mca_copy(void *dst, void *src, int sl)
 {
 	memcpy(dst, src, sl);
 }
@@ -61,7 +61,7 @@ mca_process(struct mca_conn *conn)
 	rn  = GET_RING_NODE(dst, fh & EOS_RING_MASK);
 	assert(rn->state == PKT_FREE);
 	assert(rn->pkt);
-	mca_copy(sn->pkt, sn->pkt_len, rn->pkt);
+	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;
 	sn->state = PKT_SENT_DONE;
 	rn->state = PKT_RECV_READY;

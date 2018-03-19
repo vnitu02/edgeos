@@ -26,44 +26,49 @@ struct eos_ring_node {
 
 struct eos_ring {
 	struct eos_ring_node *ring;  /* read only */
-	char pad1[CACHE_LINE - sizeof(struct eos_ring_node *)];
+	char pad1[2 * CACHE_LINE - sizeof(struct eos_ring_node *)];
 	int free_head;        /* shared head */
-	char pad2[CACHE_LINE - sizeof(int)];
+	char pad2[2 * CACHE_LINE - sizeof(int)];
 	int mca_head;        /* mca access only */
-	char pad3[CACHE_LINE - sizeof(int)];
+	char pad3[2 * CACHE_LINE - sizeof(int)];
 	int recv_head, recv_tail;    /* nf access only */
 	int sent_head, sent_tail;
 };
 
-/** 
+/**
  * shared ring buffer and packet memory layout:    
  *
- * +-------------------ONE PAGE-----------------+-------PKT MEM SZ----+ 
- * | struct eos_ring | ring_node |...|ring_node | packet |...| packet |
- * +--------------------------------------------+---------------------+ 
+ * +-----------------------------------------------------------------------+-------PKT MEM SZ----+ 
+ * | input ring | EOS_RING_SIZE nodes | output ring | EOS_RING_SIZE nodes  | packet |...| packet |
+ * +-----------------------------------------------------------------------+---------------------+ 
  *
  */
 static inline void
-eos_ring_init(struct eos_ring *rh, int recv)
+eos_rings_init(void *rh)
 {
-	void *pkts;
+       struct eos_ring *input_ring, *output_ring;
+	void *pkts, *end_of_rings;
 	int i;
 
 	assert(((unsigned long)rh & PAGE_MASK) == 0);
-	memset(rh, 0, sizeof(struct eos_ring));
-	pkts = (void *)rh + PAGE_SIZE;
-	rh->ring = (struct eos_ring_node *)pkts;
-	if (recv) {
-		for(i=0; i<EOS_RING_SIZE; i++) {
-			rh->ring[i].pkt_len = EOS_PKT_MAX_SZ;
-			rh->ring[i].state = PKT_FREE;
-			rh->ring[i].pkt = pkts;
-			pkts += EOS_PKT_MAX_SZ;
-		}
-	} else {
-		for(i=0; i<EOS_RING_SIZE; i++) {
-			rh->ring[i].state = PKT_EMPTY;
-		}
+       memset(rh, 0, sizeof(struct eos_ring));
+
+       input_ring = (struct eos_ring *)rh;
+       input_ring->ring = (void *)input_ring + sizeof(struct eos_ring);
+
+       output_ring = (void *) input_ring->ring + EOS_RING_SIZE * sizeof(struct eos_ring_node);
+       output_ring->ring = (void *)output_ring + sizeof(struct eos_ring);
+
+       end_of_rings = (void *)output_ring->ring + EOS_RING_SIZE * sizeof(struct eos_ring_node);
+       pkts = round_up_to_page(end_of_rings);
+
+       for(i=0; i<EOS_RING_SIZE; i++) {
+              output_ring->ring[i].state = PKT_EMPTY;
+
+              input_ring->ring[i].pkt_len = EOS_PKT_MAX_SZ;
+		input_ring->ring[i].state = PKT_FREE;
+		input_ring->ring[i].pkt = pkts;
+		pkts += EOS_PKT_MAX_SZ;
 	}
 }
 
