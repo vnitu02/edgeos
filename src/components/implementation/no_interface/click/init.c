@@ -51,6 +51,7 @@ cos_init(void *args)
               init_data.conf_str = conf_files[conf_file_idx];
               init_data.nf_id = cos_spd_id();
               click_main(&init_data);
+              llboot_comp_empty();
        }
 
        //for (i = &_binary_conf_file1_start; i <= &_binary_conf_file1_end; i++)
