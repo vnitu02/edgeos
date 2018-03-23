@@ -2,8 +2,9 @@
 #define FWP_SINV_H
 
 #include <llboot.h>
+#include <sl.h>
 
-#include <fwp_manager.h>
+#include "fwp_manager.h"
 
 struct cos_compinfo *boot_spd_compinfo_get(spdid_t spdid);
 
@@ -81,7 +82,8 @@ fwp_clean_chain(struct nf_chain *chain)
        struct click_info *this_ci;
 
        for(this_ci = chain->first_nf; this_ci != NULL; this_ci = this_ci->next) {
-              memcpy((void *)this_ci->booter_vaddr, (void *)templates[this_ci->nf_id].addr, templates[this_ci->nf_id].size);
+              memcpy((void *)this_ci->booter_vaddr, (void *)templates[this_ci->nf_id].addr, 
+                     templates[this_ci->nf_id].size);
               printc("nfid: %d\n", this_ci->nf_id);
        }
 }

@@ -59,7 +59,7 @@ fwp_ci_get(struct cobj_header *h, vaddr_t *comp_info)
  */
 static void
 _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, 
-              struct mem_seg *shmem_seg, vaddr_t vm_base, int conf_file_idx)
+              struct mem_seg *ring_seg, vaddr_t vm_base, int conf_file_idx)
 {
        struct cos_aep_info *fork_aep = cos_sched_aep_get(&fork_info->def_cinfo);
        struct cos_compinfo *fork_cinfo = cos_compinfo_get(&fork_info->def_cinfo);
@@ -77,12 +77,13 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
        cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, vm_base,
                             BOOT_CAPTBL_FREE, parent_cinfo_l);
 
-       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, CK_SHM_BASE, shmem_seg->size)) BUG();
-       for (dest = 0; dest < shmem_seg->size; dest += PAGE_SIZE) {
-             cos_mem_alias_at(fork_cinfo, (CK_SHM_BASE + dest), parent_cinfo_l, (shmem_seg->addr + dest));
+       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, ring_seg->map_at, ring_seg->size)) BUG();
+       for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
+             cos_mem_alias_at(fork_cinfo, (ring_seg->map_at + dest), parent_cinfo_l, (ring_seg->addr + dest));
        }
 
        fork_info->conf_file_idx = conf_file_idx;
+       fork_info->nf_id = next_nfid;
 }
 
 static vaddr_t
@@ -198,17 +199,17 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
  * fork a new click component using the configuration file at *conf_str
  */
 static void 
-fwp_fork(struct mem_seg *text_seg, struct mem_seg *data_seg, struct mem_seg *shmem_seg, int conf_file_idx)
+fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg *data_seg, struct mem_seg *ring_seg, int conf_file_idx)
 {
        struct cos_compinfo *parent_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
-       struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_infos[next_nfid].def_cinfo);
+       struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
        vaddr_t allocated_data_seg;
        
-       _fwp_fork(parent_cinfo, &chld_infos[next_nfid], shmem_seg, s_addr, conf_file_idx);
+       _fwp_fork(parent_cinfo, chld_info, ring_seg, s_addr, conf_file_idx);
 
        allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, s_addr); 
 
-       _fwp_fork_cont(parent_cinfo, &chld_infos[next_nfid], allocated_data_seg, cinfo_offset);
+       _fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset);
 }
 
 void
@@ -216,19 +217,23 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
               unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
        struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
-       struct mem_seg shmem; 
+       struct mem_seg mem1, mem2; 
        int ret;
        sinvcap_t next_call_sinvcap;
 
        cinfo_offset = comp_info_offset;
        s_addr = start_addr;
 
-       shmem.size = CK_SHM_SZ;
-       shmem.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, shmem.size);
+       mem1.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
+       mem1.size = DEFAULT_SHMEM_SIZE;
+       mem1.map_at = DEFAULT_SHMEM_ADDR1;
 
-       fwp_fork(text_seg, data_seg, &shmem, 0);
+       chains[0].first_nf = &chld_infos[next_nfid];
+       chld_infos[next_nfid].next = &chld_infos[next_nfid+1];
+
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
        next_nfid++;
-       fwp_fork(text_seg, data_seg, &shmem, 1);
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 1);
        next_nfid++;
 
        /*allocate the sinv capability for next_call*/
@@ -240,6 +245,6 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
                      cos_compinfo_get(&chld_infos[next_nfid-2].def_cinfo),
                      BOOT_CAPTBL_FREE, boot_cinfo, next_call_sinvcap);
        assert(ret == 0);
-       
+
        cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-2].initaep));
 }
