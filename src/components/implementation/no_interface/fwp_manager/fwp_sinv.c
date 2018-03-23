@@ -8,7 +8,7 @@
 struct cos_compinfo *boot_spd_compinfo_get(spdid_t spdid);
 
 static vaddr_t
-boot_comp_malloc(struct click_info *ci, size_t size)
+fwp_malloc(struct click_info *ci, size_t size)
 {
        /*FIXME to get compinfo from click_info*/
        struct cos_compinfo *boot_info = boot_spd_compinfo_get(0);
@@ -29,7 +29,7 @@ boot_comp_malloc(struct click_info *ci, size_t size)
 }
 
 static int
-boot_comp_confidx_get(unsigned long curr)
+fwp_confidx_get(unsigned long curr)
 {
        struct click_info *child_info = (struct click_info *) curr;
 
@@ -40,7 +40,7 @@ boot_comp_confidx_get(unsigned long curr)
  *  * core function for checkpointing a Click component
  *   */
 static void
-boot_comp_checkpoint(unsigned long curr, unsigned int nfid)
+fwp_checkpoint(unsigned long curr, unsigned int nfid)
 {
        vaddr_t src_seg, addr;
        size_t vm_range;
@@ -72,6 +72,20 @@ boot_comp_checkpoint(unsigned long curr, unsigned int nfid)
        cos_thd_switch(BOOT_CAPTBL_SELF_INITTHD_BASE);
 }
 
+static void
+fwp_clean_chain(struct nf_chain *chain)
+{
+       //iterate over all nfs
+       //copy its data segment
+       //how can we unroll the memory allocated afterwards - there is no memory
+       struct click_info *this_ci;
+
+       for(this_ci = chain->first_nf; this_ci != NULL; this_ci = this_ci->next) {
+              memcpy((void *)this_ci->booter_vaddr, (void *)templates[this_ci->nf_id].addr, templates[this_ci->nf_id].size);
+              printc("nfid: %d\n", this_ci->nf_id);
+       }
+}
+
 u32_t
 llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u32_t *ret3)
 {
@@ -82,7 +96,7 @@ llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u3
        case LLBOOT_COMP_MALLOC:
        {
               vaddr_t vaddr;
-              vaddr = boot_comp_malloc((struct click_info *)curr, arg3);
+              vaddr = fwp_malloc((struct click_info *)curr, arg3);
               *ret2 = (u32_t)vaddr;
 
               break;
@@ -90,20 +104,21 @@ llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u3
        case LLBOOT_COMP_CONFIDX_GET:
        {
               int conf_file_idx;
-              conf_file_idx = boot_comp_confidx_get(curr);
+              conf_file_idx = fwp_confidx_get(curr);
               *ret2 = (u32_t)conf_file_idx;
 
               break;
        }
        case LLBOOT_COMP_CHECKPOINT:
        {
-              boot_comp_checkpoint(curr, arg3);
+              fwp_checkpoint(curr, arg3);
 
               break;
        }
-       case LLBOOT_COMP_EMPTY:
+       case LLBOOT_COMP_CLEAN:
        {
-              cos_thd_switch(BOOT_CAPTBL_SELF_INITTHD_BASE);
+              fwp_clean_chain(&chains[0]);
+
               break;
        }
        default:
