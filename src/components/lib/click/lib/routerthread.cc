@@ -736,6 +736,23 @@ RouterThread::driver()
 #endif
 }
 
+void
+RouterThread::run_one_task()
+{
+       driver_lock_tasks();
+
+       // run task requests
+       click_compiler_fence();
+       if (_pending_head.x)
+              process_pending();
+
+       // run tasks
+       do {
+          run_tasks(_tasks_per_iter);
+       } while (0);
+
+       driver_unlock_tasks();
+}
 
 void
 RouterThread::kill_router(Router *r)

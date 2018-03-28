@@ -12,7 +12,5 @@
 // in /var/log/messages), and to the file '/click/messages'.
 
 FromShmem
-	-> Strip(14)
-	-> CheckIPHeader(BADSRC 18.26.4.255 2.255.255.255 1.255.255.255)
     -> Print(ok)
     -> Discard;

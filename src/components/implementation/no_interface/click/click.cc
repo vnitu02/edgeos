@@ -234,9 +234,6 @@ extern "C" void run_driver(void) {
 		}
 #endif
 
-		//end = rdtsc();
-		//printc("time to config %llu\n", end - start);
-
 		// run driver
 		router->master()->thread(0)->driver();
 
@@ -258,6 +255,21 @@ extern "C" void run_driver(void) {
 	(void) pthread_join(other_threads[i], 0);
 #endif
 	delete master;
+}
+
+extern "C" void run_driver_once(void) {
+        router->use();
+
+        // run driver
+        running = true;
+        router->activate(errh);
+
+        // run driver
+        router->master()->thread(0)->run_one_task();
+
+        // now that the driver has stopped, SIGINT gets default handling
+        running = false;
+        click_fence();
 }
 
 /*

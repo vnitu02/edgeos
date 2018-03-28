@@ -7,5 +7,7 @@
 void 
 next_call_sinv(void)
 {
-       cos_sinv(BOOT_CAPTBL_FREE, 0, 0, 0, 0);
+       word_t unused1 = 0, unused2 = 0;
+
+       cos_sinv_3rets(BOOT_CAPTBL_FREE, 0, 0, 0, 0, &unused1, &unused2);
 }

@@ -78,7 +78,8 @@ void FromShmem::push(int port, Packet *p) {
 
 bool FromShmem::run_task(Task *) {
        output(0).push((Packet *)_shmem_ptr);
-	return 0;
+	_task.fast_reschedule();
+       return 0;
 }
 
 void FromShmem::add_handlers() {

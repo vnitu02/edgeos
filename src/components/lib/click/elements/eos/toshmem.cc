@@ -78,6 +78,7 @@ void ToShmem::cleanup(CleanupStage stage) {
 void ToShmem::push(int port, Packet *p) {
        printf("next_call_sinv\n");
        next_call_sinv();
+       printf("return next_call_sinv\n");
 }
 
 bool ToShmem::run_task(Task *) {

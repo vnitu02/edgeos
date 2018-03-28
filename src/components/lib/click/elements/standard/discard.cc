@@ -56,7 +56,6 @@ void
 Discard::push(int, Packet *p)
 {
     _count++;
-    p->kill();
 }
 
 bool
