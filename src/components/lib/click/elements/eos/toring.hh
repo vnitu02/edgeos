@@ -1,7 +1,7 @@
 /*
  *          ClickOS
  *
- *   file: shmem.cc
+ *   file: shmem.hh
  *
  *          NEC Europe Ltd. PROPRIETARY INFORMATION
  *
@@ -37,63 +37,51 @@
  *
  *     THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
-#include "fromshmem.hh"
+#ifndef CLICK_TORING_HH
+#define CLICK_TORING_HH
 
-#include <click/args.hh>
+#include <click/config.h>
+#include <click/element.hh>
 #include <click/error.hh>
-#include <click/router.hh>
-#include <click/standard/scheduleinfo.hh>
 #include <click/task.hh>
-#include <stdio.h>
-#include <llprint.h>
+
+//extern "C" {
+//#include "utils.h"
+//}
 
 CLICK_DECLS
 
-FromShmem::FromShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
-                            _count(0), _task(this) {
-}
+/*
+ * sends packets to a COS ring
+ */
 
-FromShmem::~FromShmem() {
-}
+class ToRing : public Element {
+public:
+    ToRing();
+    ~ToRing();
 
-int FromShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
-	if (Args(conf, this, errh).read_p("SHMEM_PTR", IntArg(), _shmem_ptr).read_p(
-			"SHEME_SIZE", IntArg(), _shmem_size).complete() < 0)
-		return -1;
+    const char *class_name() const { return "ToRing"; }
+    const char *port_count() const { return "1/0-1"; }
+    const char *processing() const { return "a/h"; }
+    int configure_phase() const { return CONFIGURE_PHASE_FIRST; }
 
-	return 0;
-}
+    int configure(Vector<String> &, ErrorHandler *);
+    int initialize(ErrorHandler *);
+    void cleanup(CleanupStage);
 
-int FromShmem::initialize(ErrorHandler *errh) {
-	ScheduleInfo::initialize_task(this, &_task, errh);
-	return 0;
-}
+    void add_handlers();
 
-void FromShmem::cleanup(CleanupStage stage) {
-}
+    bool run_task(Task *);
+    void push(int, Packet *p);
 
-void FromShmem::push(int port, Packet *p) {
-}
+private:
+    unsigned long _ring_ptr;
+    int _count;
+    Task _task;
 
-bool FromShmem::run_task(Task *) {
-       output(0).push((Packet *)_shmem_ptr);
-	return 0;
-}
-
-void FromShmem::add_handlers() {
-	add_read_handler("count", read_handler, 0);
-	add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
-}
-
-String FromShmem::read_handler(Element* e, void *thunk) {
-	return String(static_cast<FromShmem*>(e)->_count);
-}
-
-int FromShmem::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
-	static_cast<FromShmem*>(e)->_count = 0;
-	return 0;
-}
+    static String read_handler(Element* e, void *thunk);
+    static int reset_counts(const String &, Element *e, void *, ErrorHandler *);
+};
 
 CLICK_ENDDECLS
-EXPORT_ELEMENT(FromShmem)
+#endif

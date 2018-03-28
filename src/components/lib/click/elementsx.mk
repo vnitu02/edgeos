@@ -117,6 +117,8 @@ $(CLICK_ELEMENTS_OBJ_DIR__6)/todevice.o \
 CLICK_ELEMENTS_OBJS0__6_1 = \
 $(CLICK_ELEMENTS_OBJ_DIR__6_1)/toshmem.o \
 $(CLICK_ELEMENTS_OBJ_DIR__6_1)/fromshmem.o \
+$(CLICK_ELEMENTS_OBJ_DIR__6_1)/toring.o \
+$(CLICK_ELEMENTS_OBJ_DIR__6_1)/fromring.o \
 
 CLICK_ELEMENTS_OBJS0__7 = \
 $(CLICK_ELEMENTS_OBJ_DIR__7)/simpleidle.o \

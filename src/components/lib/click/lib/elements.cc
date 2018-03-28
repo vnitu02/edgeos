@@ -152,6 +152,8 @@
 #include <click/standard/scheduleinfo.hh>
 #include "../elements/eos/toshmem.hh"
 #include "../elements/eos/fromshmem.hh"
+#include "../elements/eos/toring.hh"
+#include "../elements/eos/fromring.hh"
 #include "../elements/standard/setannobyte.hh"
 #include "../elements/standard/setcrc32.hh"
 #include "../elements/standard/setpackettype.hh"
@@ -452,6 +454,8 @@ beetlemonkey(uintptr_t heywood)
    case 229: return new StaticThreadSched;
    case 230: return new ToShmem;
    case 231: return new FromShmem;
+   case 232: return new ToRing;
+   case 233: return new FromRing;
    default: return 0;
   }
 }
@@ -697,6 +701,8 @@ click_export_elements()
   (void) click_add_element_type_stable("StaticThreadSched", beetlemonkey, 229);
   (void) click_add_element_type_stable("ToShmem", beetlemonkey, 230);
   (void) click_add_element_type_stable("FromShmem", beetlemonkey, 231);
+  (void) click_add_element_type_stable("ToRing", beetlemonkey, 232);
+  (void) click_add_element_type_stable("FromRing", beetlemonkey, 233);
   CLICK_DMALLOC_REG("nXXX");
 }
 

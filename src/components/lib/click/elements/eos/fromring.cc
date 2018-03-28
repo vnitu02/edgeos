@@ -37,7 +37,7 @@
  *
  *     THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
-#include "fromshmem.hh"
+#include "fromring.hh"
 
 #include <click/args.hh>
 #include <click/error.hh>
@@ -49,51 +49,66 @@
 
 CLICK_DECLS
 
-FromShmem::FromShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
-                            _count(0), _task(this) {
+FromRing::FromRing() :
+		_ring_ptr(DEFAULT_SHMEM_ADDR1), _count(0), _task(this) {
 }
 
-FromShmem::~FromShmem() {
+FromRing::~FromRing() {
 }
 
-int FromShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
-	if (Args(conf, this, errh).read_p("SHMEM_PTR", IntArg(), _shmem_ptr).read_p(
-			"SHEME_SIZE", IntArg(), _shmem_size).complete() < 0)
+int 
+FromRing::configure(Vector<String> &conf, ErrorHandler *errh)
+{
+	if (Args(conf, this, errh)
+              .read_p("RING_PTR", _ring_ptr)
+              .complete() < 0)
 		return -1;
 
 	return 0;
 }
 
-int FromShmem::initialize(ErrorHandler *errh) {
-	ScheduleInfo::initialize_task(this, &_task, errh);
+int
+FromRing::initialize(ErrorHandler *errh)
+{
+	/*TODO hypercall to get the ring buffer address*/
+
+       ScheduleInfo::initialize_task(this, &_task, errh);
 	return 0;
 }
 
-void FromShmem::cleanup(CleanupStage stage) {
+void
+FromRing::cleanup(CleanupStage stage)
+{
 }
 
-void FromShmem::push(int port, Packet *p) {
+void
+FromRing::push(int port, Packet *p)
+{
 }
 
-bool FromShmem::run_task(Task *) {
-       output(0).push((Packet *)_shmem_ptr);
+bool
+FromRing::run_task(Task *)
+{
+       /*Packet* p;
+
+       p = Packet::make((unsigned char*) pbuf_p->payload, 
+                            pbuf_p->len, NULL, NULL);*/
 	return 0;
 }
 
-void FromShmem::add_handlers() {
-	add_read_handler("count", read_handler, 0);
-	add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
+void FromRing::add_handlers() {
+       add_read_handler("count", read_handler, 0);
+       add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
 }
 
-String FromShmem::read_handler(Element* e, void *thunk) {
-	return String(static_cast<FromShmem*>(e)->_count);
+String FromRing::read_handler(Element* e, void *thunk) {
+       return String(static_cast<FromRing*>(e)->_count);
 }
 
-int FromShmem::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
-	static_cast<FromShmem*>(e)->_count = 0;
-	return 0;
+int FromRing::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
+       static_cast<FromRing*>(e)->_count = 0;
+       return 0;
 }
 
 CLICK_ENDDECLS
-EXPORT_ELEMENT(FromShmem)
+EXPORT_ELEMENT(FromRing)
