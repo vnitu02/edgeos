@@ -35,7 +35,6 @@ setup_conf_files(void)
 void 
 cos_init(void *args)
 {
-       //unsigned long i;
        struct click_init init_data;
 
        llboot_comp_confidx_get(&conf_file_idx);
@@ -50,9 +49,11 @@ cos_init(void *args)
               setup_conf_files();
               init_data.conf_str = conf_files[conf_file_idx];
               init_data.nf_id = cos_spd_id();
-              click_main(&init_data);
-       }
 
-       //for (i = &_binary_conf_file1_start; i <= &_binary_conf_file1_end; i++)
-       //       printc("%c", *(char *)i);
+              click_initialize(&init_data);
+              llboot_comp_checkpoint(init_data.nf_id);
+              //run the configuration file once
+              run_driver_once();
+              llboot_comp_clean();
+       }
 }

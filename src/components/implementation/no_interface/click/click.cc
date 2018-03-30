@@ -275,7 +275,7 @@ extern "C" void run_driver_once(void) {
 /*
  * entry point in the click code
  */
-extern "C" int click_main(void *data) {
+extern "C" int click_initialize(void *data) {
 	struct click_init *init_data = (struct click_init *) data;
 
 	//start = rdtsc();
@@ -286,11 +286,6 @@ extern "C" int click_main(void *data) {
 	router = parse_configuration(init_data->conf_str, true, errh);
 	if (!router)
 		return 1;
-
-       llboot_comp_checkpoint(init_data->nf_id);
-
-       //run the configuration file
-	run_driver();
 
 	return 0;
 }

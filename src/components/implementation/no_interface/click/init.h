@@ -31,7 +31,7 @@ struct chld_click_info {
 	struct click_info click_info;
 };
 
-int click_main(void *data);
+int click_initialize(void *data);
 void run_driver(void);
 
 #endif /*CK_INIT_H*/
