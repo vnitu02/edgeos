@@ -1,7 +1,7 @@
 #ifndef FWP_SINV_H
 #define FWP_SINV_H
 
-#include <llboot.h>
+#include <nf_hypercall.h>
 #include <sl.h>
 
 #include "fwp_manager.h"
@@ -30,9 +30,9 @@ fwp_malloc(struct click_info *ci, size_t size)
 }
 
 static int
-fwp_confidx_get(unsigned long curr)
+fwp_confidx_get(void *token)
 {
-       struct click_info *child_info = (struct click_info *) curr;
+       struct click_info *child_info = (struct click_info *) token;
 
        return child_info->conf_file_idx;
 }
@@ -41,12 +41,12 @@ fwp_confidx_get(unsigned long curr)
  *  * core function for checkpointing a Click component
  *   */
 static void
-fwp_checkpoint(unsigned long curr, unsigned int nfid)
+fwp_checkpoint(void *token, unsigned int nfid)
 {
        vaddr_t src_seg, addr;
        size_t vm_range;
        struct cos_compinfo *parent_cinfo_l = boot_spd_compinfo_get(0);
-       struct click_info *child_info = (struct click_info *) curr;
+       struct click_info *child_info = (struct click_info *) token;
 
        /*
  *        * duplicate memory from this_chld_vm_base to vas_frontier
@@ -89,35 +89,36 @@ fwp_clean_chain(struct nf_chain *chain)
 }
 
 u32_t
-llboot_entry(unsigned long curr, int op, u32_t arg3, u32_t arg4, u32_t *ret2, u32_t *ret3)
+nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
 {
        u32_t ret1 = 0;
        u32_t error = (1 << 16) - 1;
+       void *token = (void *)cos_inv_token();
 
        switch(op) {
-       case LLBOOT_COMP_MALLOC:
+       case NF_MALLOC:
        {
               vaddr_t vaddr;
-              vaddr = fwp_malloc((struct click_info *)curr, arg3);
+              vaddr = fwp_malloc((struct click_info *)token, arg3);
               *ret2 = (u32_t)vaddr;
 
               break;
        }
-       case LLBOOT_COMP_CONFIDX_GET:
+       case NF_CONFIDX_GET:
        {
               int conf_file_idx;
-              conf_file_idx = fwp_confidx_get(curr);
+              conf_file_idx = fwp_confidx_get(token);
               *ret2 = (u32_t)conf_file_idx;
 
               break;
        }
-       case LLBOOT_COMP_CHECKPOINT:
+       case NF_CHECKPOINT:
        {
-              fwp_checkpoint(curr, arg3);
+              fwp_checkpoint(token, arg3);
 
               break;
        }
-       case LLBOOT_COMP_CLEAN:
+       case NF_CLEAN:
        {
               fwp_clean_chain(&chains[0]);
 

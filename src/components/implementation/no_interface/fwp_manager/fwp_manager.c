@@ -4,8 +4,7 @@
 #include "fwp_manager.h"
 
 /* Assembly function for sinv from new component */
-extern void *llboot_entry_inv(int a, int b, int c);
-extern void *__inv_next_call(int a, int b, int c, int d);
+extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
 
 unsigned long cinfo_offset; /* The ofset of the cos_component_information in the data segment*/
 vaddr_t s_addr; /* The address where the .text segment should be mapped */
@@ -138,7 +137,7 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
                             ckcc);
        assert(ret == 0);
 
-       ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SINV_CAP, parent_cinfo_l, sinv);
+       ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_FREE, parent_cinfo_l, sinv);
        assert(ret == 0);
 
        ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_INITHW_BASE,
@@ -179,15 +178,13 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
        assert(ckcc);
        child_cinfo->comp_cap = ckcc;
 
-       child_aep->thd = cos_initthd_alloc(parent_cinfo, child_cinfo->comp_cap);
-       assert(child_aep->thd);
-       _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
-
-       chld_info->initaep = sl_thd_comp_init(&(chld_info->def_cinfo), 0);
+       chld_info->initaep = sl_thd_initaep_alloc(&chld_info->def_cinfo, NULL, 0, 0, 0);
        assert(chld_info->initaep);
 
+       _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
+
        /* Create sinv capability from Userspace to Booter components */
-       sinv = cos_sinv_alloc(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)llboot_entry_inv, (vaddr_t)chld_info);
+       sinv = cos_sinv_alloc(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)nf_entry_rets_inv, (vaddr_t)chld_info);
        assert(sinv > 0);
 
        copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
@@ -229,22 +226,22 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        mem1.map_at = DEFAULT_SHMEM_ADDR1;
 
        chains[0].first_nf = &chld_infos[next_nfid];
-       chld_infos[next_nfid].next = &chld_infos[next_nfid+1];
+       //chld_infos[next_nfid].next = &chld_infos[next_nfid+1];
 
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
-       next_nfid++;
+       /*next_nfid++;
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 1);
-       next_nfid++;
+       next_nfid++;*/
 
        /*allocate the sinv capability for next_call*/
-       next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
+       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
                             cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap, 
                             sinv_next_call, 0);
        assert(next_call_sinvcap > 0);
        ret = cos_cap_cpy_at(
                      cos_compinfo_get(&chld_infos[next_nfid-2].def_cinfo),
                      BOOT_CAPTBL_FREE, boot_cinfo, next_call_sinvcap);
-       assert(ret == 0);
+       assert(ret == 0);*/
 
-       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-2].initaep));
+       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid].initaep));
 }

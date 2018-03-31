@@ -1,7 +1,10 @@
+#include <cos_types.h>
 #include <cos_component.h>
 #include <cobj_format.h>
 #include <cos_kernel_api.h>
 #include <cos_defkernel_api.h>
+#include <stdlib.h>
+#include <sl.h>
 
 #include "boot_deps.h"
 #include "fwp_manager.h"
@@ -16,7 +19,7 @@ struct deps {
 struct deps deps_list[MAX_DEPS];
 int          ndeps;
 int          num_cobj;
-int          resmgr_spdid;
+int          capmgr_spdid;
 int          root_spdid;
 
 /*Component init info*/
@@ -28,8 +31,6 @@ struct component_init_str {
 } __attribute__((packed));
 
 struct component_init_str *init_args;
-
-unsigned int *boot_sched;
 
 static void
 boot_find_cobjs(struct cobj_header *h, int n)
@@ -47,7 +48,7 @@ boot_find_cobjs(struct cobj_header *h, int n)
 		for (j = 0; j < (int)h->nsect; j++) {
 			tot += cobj_sect_size(h, j);
 		}
-		printc("cobj %s:%d found at %p:%x, -> %x\n", h->name, h->id, hs[i - 1], size,
+		PRINTLOG(PRINT_DEBUG, "cobj %s:%d found at %p:%x, -> %x\n", h->name, h->id, hs[i - 1], size,
 		       cobj_sect_get(hs[i - 1], 0)->vaddr);
 
 		end   = start + round_up_to_cacheline(size);
@@ -56,24 +57,22 @@ boot_find_cobjs(struct cobj_header *h, int n)
 	}
 
 	hs[n] = NULL;
-	printc("cobj %s:%d found at %p:%x -> %x\n", hs[n - 1]->name, hs[n - 1]->id, hs[n - 1], hs[n-1]->size,
+	PRINTLOG(PRINT_DEBUG, "cobj %s:%d found at %p:%x -> %x\n", hs[n - 1]->name, hs[n - 1]->id, hs[n - 1], hs[n-1]->size,
 	       cobj_sect_get(hs[n - 1], 0)->vaddr);
 
 }
 
 static int
-boot_comp_map_memory(struct cobj_header *h, spdid_t spdid, pgtblcap_t pt)
+boot_comp_map_memory(struct cobj_header *h, spdid_t spdid)
 {
 	int               i;
 	int		  first = 1;
-	vaddr_t           dest_daddr, prev_map = 0;
+	vaddr_t           dest_daddr, prev_map = 0, map_daddr;
 	int               n_pte = 1;
 	struct cobj_sect *sect = cobj_sect_get(h, 0);
-
-	boot_comp_pgtbl_expand(n_pte, pt, sect->vaddr, h);
+	struct comp_cap_info *spdinfo = boot_spd_compcapinfo_get(spdid);
 
 	/* We'll map the component into booter's heap. */
-
 	for (i = 0; i < (int)h->nsect; i++) {
 		int left;
 
@@ -90,11 +89,12 @@ boot_comp_map_memory(struct cobj_header *h, spdid_t spdid, pgtblcap_t pt)
 
 		while (left > 0) {
 			if (first) {
-				new_comp_cap_info[spdid].vaddr_mapped_in_booter = boot_deps_map_sect(spdid, dest_daddr);
+				spdinfo->vaddr_mapped_in_booter = boot_deps_map_sect(spdid, &map_daddr);
 				first = 0;
 			} else {
-				boot_deps_map_sect(spdid, dest_daddr);
+				boot_deps_map_sect(spdid, &map_daddr);
 			}
+			assert(dest_daddr == map_daddr);
 			prev_map = dest_daddr;
 			dest_daddr += PAGE_SIZE;
 			left -= PAGE_SIZE;
@@ -187,16 +187,17 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 	/* Where are we in the destination address space? */
 	vaddr_t                           init_daddr;
 	struct cos_component_information *ci;
+	struct comp_cap_info             *spdinfo = boot_spd_compcapinfo_get(spdid);
 
-	start_addr = (char *)(new_comp_cap_info[spdid].vaddr_mapped_in_booter);
+	start_addr = (char *)(spdinfo->vaddr_mapped_in_booter);
 	init_daddr = cobj_sect_get(h, 0)->vaddr;
 
-	int total = 0;
 	for (i = 0; i < h->nsect; i++) {
-		struct cobj_sect *sect;
-		vaddr_t           dest_daddr;
-		char *            lsrc;
-		int               left;
+		struct cobj_sect     *sect;
+		vaddr_t               dest_daddr;
+		char                 *lsrc;
+		int                   left;
+		struct comp_cap_info *hinfo = NULL;
 
 		sect = cobj_sect_get(h, i);
 		/* virtual address in the destination address space */
@@ -205,7 +206,6 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		lsrc = cobj_sect_contents(h, i);
 		/* how much is left to copy? */
 		left = cobj_sect_size(h, i);
-		total += left;
 
               if ((sect->flags & COBJ_SECT_READ) && !(sect->flags & COBJ_SECT_WRITE) && left != 0){
                      end_rodata[spdid] = (vaddr_t) start_addr + (dest_daddr - init_daddr) + left;
@@ -222,16 +222,17 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 		}
 
 		if (sect->flags & COBJ_SECT_CINFO) {
-			assert(left == PAGE_SIZE);
-			assert(comp_info == dest_daddr);
-                     
+                     assert((left % PAGE_SIZE) == 0);
+                     assert(comp_info == (dest_daddr + (((left/PAGE_SIZE)-1)*PAGE_SIZE)));
+
                      ci = (struct cos_component_information *)(start_addr + (comp_info - init_daddr));
 			boot_process_cinfo(h, spdid, boot_spd_end(h), ci, comp_info);
 		
                      comp_info_offset[spdid] = (unsigned long) ci - round_up_to_page(end_rodata[spdid]);
                      assert(comp_info_offset[spdid]>0);
 	
-                     new_comp_cap_info[h->id].upcall_entry = ci->cos_upcall_entry;
+			hinfo = boot_spd_compcapinfo_get(h->id);
+			hinfo->upcall_entry = ci->cos_upcall_entry;
 		}
 
 	}
@@ -240,10 +241,11 @@ boot_comp_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 }
 
 int
-boot_comp_map(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info, pgtblcap_t pt)
+boot_comp_map(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
-	boot_comp_map_memory(h, spdid, pt);
+	boot_comp_map_memory(h, spdid);
 	boot_comp_map_populate(h, spdid, comp_info);
+
 	return 0;
 }
 
@@ -251,21 +253,21 @@ static void
 boot_init_sched(void)
 {
 	int i;
-
-	for (i = 0; i < MAX_NUM_SPDS; i++) schedule[i] = 0;
+	
+       for (i = 0; i < MAX_NUM_SPDS; i++) schedule[i] = 0;
 	sched_cur = 0;
 }
 
 int
 boot_spd_inv_cap_alloc(struct cobj_header *h, spdid_t spdid)
 {
+	struct comp_cap_info *spdinfo = boot_spd_compcapinfo_get(spdid);
 	struct cobj_cap *cap;
 	struct usr_inv_cap inv_cap;
 	int cap_offset;
-	unsigned int i;
+	size_t i;
 
-	for (i = 0; i < h->ncap ; i++) {
-
+	for (i = 0 ; i < h->ncap ; i++) {
 		cap = cobj_cap_get(h, i);
 		assert(cap);
 
@@ -279,134 +281,58 @@ boot_spd_inv_cap_alloc(struct cobj_header *h, spdid_t spdid)
 			.invocation_count = cap->dest_id
 		};
 
-		new_comp_cap_info[spdid].ST_user_caps[cap_offset] = inv_cap;
+		spdinfo->ST_user_caps[cap_offset] = inv_cap;
 	}
 	return 0;
 }
 
-/*
- * Hacky specification until we have json parser working.
- * Root scheduler (not booter): "root_" prefix
- * Hierarchical schedulers: "<sched_no>_<parent_no>_" prefix, sched_no or parent_no is not related to spdid. it's really a static number from init string..
- *                          More importantly, the order in init string for hierarchical scheduling should be increasing order of levels.
- * 			    ID of root scheduler be == 0. Hierarchical scheduler numbers monotonically increasing starting from 1.
- * Non-scheduling components: "_<parent_no>_" prefix.??.
- * Resource manager: "resmgr" as its name!
- *
- * Thought: If SPDID namespace is created based on some hierarchical protocol then doing it here will be unnecessary. (I first need to find where SPDIDs are created though!)
- */
-#define BOOT_ROOT_SCHED   "root_"
-#define BOOT_SCHED_OFF    0
-#define BOOT_PARENT_OFF   1
-#define BOOT_NONSCHED_STR "_"
-#define BOOT_RESMGR       "resmgr"
-#define BOOT_DELIMITER    "_"
-
-#define BOOT_NAME_MAX 32
-
-static spdid_t
-boot_comp_find_parent(spdid_t s)
-{
-	int i = 0;
-
-	/* NOTE: only from objects parsed so far */
-	for (; i <= num_cobj; i++) {
-		if (new_comp_cap_info[i].sched_no == new_comp_cap_info[s].parent_no) return i;
-	}
-
-	return 0;
-}
+#define BOOT_ROOT_SCHED   "boot"
+#define BOOT_CAPMGR       "capmgr"
 
 static void
-boot_comp_parent_childbit_set(spdid_t s)
+boot_comp_name_parse(spdid_t s, const char *name)
 {
-	struct comp_cap_info *parentcinfo = NULL;
-	struct comp_cap_info *cinfo = &new_comp_cap_info[s];
+	struct comp_sched_info *si = boot_spd_comp_schedinfo_get(s);
 
-	if (cinfo->parent_spdid <= num_cobj) {
-		parentcinfo = &new_comp_cap_info[cinfo->parent_spdid];
-		assert(s);
-		parentcinfo->childid_bitf |= (1 << (s-1));
-
-		if (cinfo->is_sched == 1) parentcinfo->childid_sched_bitf |= (1 << (s-1));
-	}
-}
-
-static void
-boot_comp_name_parse(spdid_t s, const char *strname)
-{
-	struct comp_cap_info *cinfo = &new_comp_cap_info[s];
-	struct comp_cap_info *bootcinfo = &new_comp_cap_info[0];
-	char name[BOOT_NAME_MAX] = { '\0' };
-	char *tok;
-	int count_parsed = 0;
-
-	strncpy(name, strname, BOOT_NAME_MAX); 
-	cinfo->is_sched = -1;
-	cinfo->childid_bitf = 0;
-	if (name[0] == '_') {
-		/* TODO: */
-		/* set it to be non-scheduler */
-		/* set parent to be none: don't care who uses or runs it for now! */
-		cinfo->is_sched  = 0;
-		cinfo->sched_no  = -1;
-		cinfo->parent_no = 0;
-
-		count_parsed = 1;
-	} else if (strncmp(name, BOOT_ROOT_SCHED, 5) == 0) {
-		/* set it to be the root scheduler */
-		/* set it's parent to be llbooter! */
-		cinfo->is_sched = 1;
-		cinfo->parent_spdid = 0;
-		cinfo->sched_no = 2;
+	if (strcmp(name, BOOT_ROOT_SCHED) == 0) {
+		si->flags |= COMP_FLAG_SCHED;
 		root_spdid = s;
-
-		boot_comp_parent_childbit_set(s);
-		return;
-	} else if (strcmp(name, BOOT_RESMGR) == 0) {
-		/* llbooter creates init thread and lets it initialize. (for my impl: should not run after boot-up */
-		/* set it's parent to be llbooter */
-		resmgr_spdid = s;
-		cinfo->is_sched  = 0;
-		cinfo->sched_no  = 1;
-		cinfo->parent_no = 0;
-		cinfo->parent_spdid = 0;
-
-		boot_comp_parent_childbit_set(s);
-		return;
+	} else if (strcmp(name, BOOT_CAPMGR) == 0) {
+		capmgr_spdid = s;
+		si->flags |= COMP_FLAG_CAPMGR;
 	}
 
-	tok = strtok(name, BOOT_DELIMITER);
-	while (tok != NULL) {
-		switch (count_parsed) {
-		case BOOT_SCHED_OFF:
-		{
-			cinfo->sched_no = atoi(tok);
-			cinfo->is_sched = 1;
-			break;
-		}
-		case BOOT_PARENT_OFF:
-		{
-
-			cinfo->parent_no    = atoi(tok);
-			cinfo->parent_spdid = boot_comp_find_parent(s);
-			boot_comp_parent_childbit_set(s);
-
-			break;
-		}
-		default: break;
-		}
-
-		count_parsed ++;
-		tok = strtok(NULL, BOOT_DELIMITER);
-		if (cinfo->is_sched == 0) break;
-		if (count_parsed == 2) break;
-	}
-
-	assert(count_parsed == 2);
-
-	/* FIXME: should just work with carefully crafted names. no consistency checks here! */
 	return;
+}
+
+static void
+boot_comp_preparse_name(void)
+{
+	unsigned int i;
+
+	for (i = 0; hs[i] != NULL; i++) {
+		struct cobj_header *h;
+		spdid_t             spdid;
+		struct comp_sched_info *spdsi, *schedspdsi;
+
+		h     = hs[i];
+		spdid = h->id;
+
+		assert(spdid != 0);
+
+		boot_comp_name_parse(spdid, h->name);
+
+		if (!(h->flags)) continue;
+		spdsi      = boot_spd_comp_schedinfo_get(spdid);
+		schedspdsi = boot_spd_comp_schedinfo_get(spdsi->parent_spdid);
+
+		assert((spdsi->flags & COMP_FLAG_CAPMGR) == 0);
+		assert(schedspdsi->flags & COMP_FLAG_SCHED);
+		spdsi->flags |= COMP_FLAG_SCHED;
+	}
+
+	PRINTLOG(PRINT_DEBUG, "Capability manager component[=%u] %s!\n", capmgr_spdid, capmgr_spdid ? "found" : "not found");
+	PRINTLOG(PRINT_DEBUG, "Root scheduler component[=%u] %s!\n", root_spdid, root_spdid ? "found" : "not found");
 }
 
 static void
@@ -414,56 +340,99 @@ boot_create_cap_system(vaddr_t *sinv_next_call)
 {
 	unsigned int i;
 
+	boot_comp_preparse_name();
+
 	for (i = 0; hs[i] != NULL; i++) {
-		struct cobj_header *h;
-		struct cobj_sect *  sect;
-		captblcap_t         ct;
-		pgtblcap_t          pt;
-		spdid_t             spdid;
-		vaddr_t             ci = 0;
+		struct comp_cap_info *spdinfo;
+		struct cobj_header   *h;
+		struct cobj_sect     *sect;
+		captblcap_t           ct;
+		pgtblcap_t            pt;
+		spdid_t               spdid;
+		vaddr_t               ci = 0;
 
 		h     = hs[i];
 		spdid = h->id;
 
 		assert(spdid != 0);
+		spdinfo = boot_spd_compcapinfo_get(spdid);
 
-		sect                                = cobj_sect_get(h, 0);
-		new_comp_cap_info[spdid].addr_start = sect->vaddr;
-		boot_comp_name_parse(spdid, h->name);
+		sect                = cobj_sect_get(h, 0);
+		spdinfo->addr_start = sect->vaddr;
 		boot_compinfo_init(spdid, &ct, &pt, sect->vaddr);
 
 		if (boot_spd_symbs(h, spdid, &ci, &new_comp_cap_info[spdid].vaddr_user_caps, sinv_next_call)) BUG();
 		if (boot_spd_inv_cap_alloc(h, spdid)) BUG();
-		if (boot_comp_map(h, spdid, ci, pt)) BUG();
+		if (boot_comp_map(h, spdid, ci)) BUG();
 
 		boot_newcomp_create(spdid, boot_spd_compinfo_get(spdid));
-		printc("Comp %d (%s) created @ %x!\n", h->id, h->name, sect->vaddr);
+		PRINTLOG(PRINT_DEBUG, "Comp %d (%s) created @ %x!\n", h->id, h->name, sect->vaddr);
 	}
+
+	/*
+	 * create invocations only after all components are created,
+	 * to be able to resolve forward dependencies.
+	 */
+	for (i = 0; hs[i] != NULL; i++) {
+		struct cobj_header *h;
+		spdid_t             spdid;
+
+		h     = hs[i];
+		spdid = h->id;
+
+		assert(spdid != 0);
+		boot_newcomp_sinv_alloc(spdid);
+		PRINTLOG(PRINT_DEBUG, "Comp %d (%s) undefined symbols resolved!\n", h->id, h->name);
+	}
+	boot_capmgr_mem_alloc();
 
 	return;
 }
 
 void
-boot_init_ndeps(int num_cobj)
+boot_child_info_print(void)
 {
-	int i = 0;
+	int i;
 
-	printc("MAX DEPS: %d\n", MAX_DEPS);
-	for (i = 0; i < deps_list[i].server; i++) {
-//		if (deps_list[i].client != 0) printc("client: %d, server: %d \n", deps_list[i].client, deps_list[i].server);
+	for (i = 0; i <= num_cobj; i++) {
+		struct comp_sched_info *si = boot_spd_comp_schedinfo_get(i);
+		int j;
+
+		PRINTLOG(PRINT_DEBUG, "Component %d => child", i);
+		for (j = 0; j < (int)MAX_NUM_COMP_WORDS; j++) printc(" bitmap[%d]: %04x", j, si->child_bitmap[j]);
+		printc("\n");
 	}
-
-	printc("ndeps: %d\n", ndeps);
-	ndeps = i;
 }
 
 void
-boot_child_info(void)
+boot_parse_init_args(void)
 {
-	int i = 0;
+	int i = 1;
 
 	for (; i <= num_cobj; i++) {
-		printc("Component %d => child bitmap %llx, sched bitmap %llx\n", i, new_comp_cap_info[i].childid_bitf, new_comp_cap_info[i].childid_sched_bitf);
+		spdid_t spdid = init_args[i].spdid, schedid = init_args[i].schedid;
+		struct comp_sched_info *spdsi      = boot_spd_comp_schedinfo_get(spdid);
+		struct comp_sched_info *schedspdsi = boot_spd_comp_schedinfo_get(schedid);
+
+		spdsi->parent_spdid = schedid;
+		bitmap_set(schedspdsi->child_bitmap, spdid - 1);
+		schedspdsi->flags |= COMP_FLAG_SCHED;
+		schedspdsi->num_child++;
+	}
+}
+
+void
+boot_comp_capinfo_init(void)
+{
+	int i;
+
+	memset(new_comp_cap_info, 0, sizeof(struct comp_cap_info) * (MAX_NUM_SPDS));
+	memset(comp_schedinfo, 0, sizeof(struct comp_sched_info) * (MAX_NUM_SPDS + 1));
+
+	for (i = 1; i <= MAX_NUM_SPDS; i++) {
+		struct comp_cap_info *spdinfo = boot_spd_compcapinfo_get(i);
+
+		spdinfo->schedinfo = &comp_schedinfo[i];
 	}
 }
 
@@ -472,9 +441,11 @@ fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid, vaddr_t sinv_next_call)
 {
        struct cos_compinfo *booter_cinfo = boot_spd_compinfo_get(0);
        struct mem_seg text, data;
+       struct comp_cap_info *spdinfo = boot_spd_compcapinfo_get(spdid);
 
-       text.addr = new_comp_cap_info[spdid].vaddr_mapped_in_booter;
-       text.size = end_rodata[spdid] - new_comp_cap_info[spdid].vaddr_mapped_in_booter;
+
+       text.addr = spdinfo->vaddr_mapped_in_booter;
+       text.size = end_rodata[spdid] - spdinfo->vaddr_mapped_in_booter;
        data.addr = round_up_to_page(end_rodata[spdid]);
        data.size = booter_cinfo->vas_frontier - data.addr;
 
@@ -486,32 +457,27 @@ cos_init(void)
 {
 	struct cobj_header *h;
 
-	printc("Booter for new kernel\n");
+	PRINTLOG(PRINT_DEBUG, "Booter for new kernel\n");
 
-	resmgr_spdid = 0;
+	capmgr_spdid = 0;
 	root_spdid = 0;
 
 	h        = (struct cobj_header *)cos_comp_info.cos_poly[0];
 	num_cobj = (int)cos_comp_info.cos_poly[1];
 
+	PRINTLOG(PRINT_DEBUG, "num cobjs: %d\n", num_cobj);
 	assert(num_cobj <= MAX_NUM_SPDS);
-	memset(new_comp_cap_info, 0, sizeof(struct comp_cap_info) * (MAX_NUM_SPDS + 1));
-
-	//deps = (struct deps *)cos_comp_info.cos_poly[2];
-	memcpy(deps_list, (struct deps *)cos_comp_info.cos_poly[2], PAGE_SIZE);
-	boot_init_ndeps(num_cobj);
+	boot_comp_capinfo_init();
 
 	init_args = (struct component_init_str *)cos_comp_info.cos_poly[3];
+	boot_parse_init_args();
 	init_args++;
 
-	boot_sched = (unsigned int *)cos_comp_info.cos_poly[4];
 	boot_init_sched();
-
-	printc("num cobjs: %d\n", num_cobj);
 	boot_find_cobjs(h, num_cobj);
 	boot_bootcomp_init();
 	boot_create_cap_system(&sinv_next[h->id]);
-	boot_child_info();
+	boot_child_info_print();
 
        fwp_prepare_and_test(cobj_sect_get(h, 0)->vaddr, h->id, sinv_next[h->id]); 
 
