@@ -1,4 +1,4 @@
-#include<llboot.h>
+#include<nf_hypercall.h>
 
 #include"init.h"
 
@@ -37,7 +37,7 @@ cos_init(void *args)
 {
        struct click_init init_data;
 
-       llboot_comp_confidx_get(&conf_file_idx);
+       nf_hyp_confidx_get(&conf_file_idx);
 
        /*
        * idx=-1 means that the conf file is already parsed
@@ -51,9 +51,9 @@ cos_init(void *args)
               init_data.nf_id = cos_spd_id();
 
               click_initialize(&init_data);
-              llboot_comp_checkpoint(init_data.nf_id);
+              nf_hyp_checkpoint(init_data.nf_id);
               //run the configuration file once
               run_driver_once();
-              llboot_comp_clean();
+              nf_hyp_clean();
        }
 }

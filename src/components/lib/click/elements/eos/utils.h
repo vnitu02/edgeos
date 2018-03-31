@@ -1,6 +1,16 @@
 #ifndef CK_INIT_H
 #define CK_INIT_H
 
-void next_call_sinv(void);
+#include <cos_kernel_api.h>
+#include <cos_types.h>
+
+/*
+ *  * sinv to another click component
+ *   */
+static int
+next_call_sinv(void)
+{
+       cos_sinv(BOOT_CAPTBL_FREE, 0, 0, 0, 0);
+}
 
 #endif /*CK_INIT_H*/

@@ -54,7 +54,6 @@
 CLICK_USING_DECLS
 
 extern "C" {
-#include <llboot.h>
 #include "init.h"
 }
 

@@ -7,7 +7,7 @@
 #include <syscall.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <llboot.h>
+#include <nf_hypercall.h>
 
 #define SYSCALLS_NUM 378
 
@@ -115,7 +115,7 @@ cos_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
               return MAP_FAILED;
        }
 
-       llboot_comp_malloc(length, &addr);
+       nf_hyp_malloc(length, &addr);
        if (!addr){
               ret = (void *) -1;
        } else {
