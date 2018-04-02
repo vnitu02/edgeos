@@ -49,6 +49,7 @@ distclean:
 # with a new shell.
 	make -C posix clean
 	make -C libcxx clean
+	make -C click clean
 
 musl:
 	cd musl-1.1.11; ./configure "CFLAGS=-m32 -O3" "LDFLAGS=-Wl,-melf_i386" --disable-shared --target=i386; cd ..
@@ -63,3 +64,4 @@ init: clean distclean musl ps all
 # keep the following commands in one line. Same as above.
 	make -C posix
 	make -C libcxx
+	make -C click
