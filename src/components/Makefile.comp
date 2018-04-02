@@ -25,6 +25,7 @@ CCVOBJ=$(CCVDIR)/cos_libccv.a
 CCVINC=-I$(CCVDIR)
 
 POSIX_LIB=$(CDIR)/lib/posix/posix.o
+POSIX_HYPERCALL_LIB=$(CDIR)/lib/posix/posix_hypercall.o
 
 #PONY=$(CDIR)/cidl/
 PONY=/bin/echo

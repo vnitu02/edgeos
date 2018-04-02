@@ -5,10 +5,13 @@ INC += -I../ps/
 
 .PHONY: all
 
-all: posix.o
+all: posix.o posix_hypercall.o
 
 posix.o: posix.c
 	$(CC) $(INC) $< -o $@ -c $(CFLAGS)
 
+posix_hypercall.o: posix_hypercall.c
+	$(CC) $(INC) $< -o $@ -c $(CFLAGS)
+
 clean:
-	rm -f posix.o
+	rm -f posix.o posix_hypercall.o
