@@ -10,7 +10,7 @@
 static int
 next_call_sinv(void)
 {
-       cos_sinv(BOOT_CAPTBL_FREE, 0, 0, 0, 0);
+       cos_sinv(BOOT_CAPTBL_NEXT_SINV_CAP, 0, 0, 0, 0);
 }
 
 #endif /*CK_INIT_H*/
