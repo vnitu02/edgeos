@@ -470,7 +470,7 @@ Packet::alloc_data(uint32_t headroom, uint32_t length, uint32_t tailroom)
 	n = min_buffer_length;
     }
 # if CLICK_USERLEVEL || CLICK_MINIOS || CLICK_COS
-    unsigned char *d = (unsigned char *) 0x80000000 + sizeof(WritablePacket);
+    unsigned char *d = new unsigned char[n];
     if (!d)
 	return false;
     _head = d;
@@ -531,7 +531,6 @@ WritablePacket *
 Packet::make(uint32_t headroom, const void *data,
 	     uint32_t length, uint32_t tailroom)
 {
-/*
 #if CLICK_LINUXMODULE
     int want = 1;
     if (struct sk_buff *skb = skbmgr_allocate_skbs(headroom, length + tailroom, &want)) {
@@ -557,8 +556,6 @@ Packet::make(uint32_t headroom, const void *data,
 	return 0;
 # else
     WritablePacket *p = new WritablePacket;
-*/
-    WritablePacket *p = (WritablePacket *) 0x80000000; 
     if (!p)
 	return 0;
     p->initialize();
@@ -567,11 +564,11 @@ Packet::make(uint32_t headroom, const void *data,
 	delete p;
 	return 0;
     }
-//# endif
+# endif
     if (data)
 	memcpy(p->data(), data, length);
     return p;
-//#endif
+#endif
 }
 
 #if CLICK_USERLEVEL || CLICK_MINIOS || CLICK_COS
