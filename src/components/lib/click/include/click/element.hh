@@ -22,7 +22,8 @@ class EtherAddress;
  * @brief Click's Element class.
  */
 
-#define DEFAULT_SHMEM_ADDR (0x80000000)
+#define DEFAULT_SHMEM_ADDR1 (0x80000000)
+#define DEFAULT_SHMEM_ADDR2 (0x81000000)
 #define DEFAULT_SHMEM_SIZE (1<<22)
 
 #ifndef CLICK_ELEMENT_DEPRECATED

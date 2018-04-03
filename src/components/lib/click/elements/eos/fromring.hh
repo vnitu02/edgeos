@@ -1,7 +1,7 @@
 /*
  *          ClickOS
  *
- *   file: shmem.cc
+ *   file: shmem.hh
  *
  *          NEC Europe Ltd. PROPRIETARY INFORMATION
  *
@@ -37,67 +37,47 @@
  *
  *     THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
-#include "toshmem.hh"
+#ifndef CLICK_FROMRING_HH
+#define CLICK_FROMRING_HH
 
-#include <click/args.hh>
+#include <click/config.h>
+#include <click/element.hh>
 #include <click/error.hh>
-#include <click/router.hh>
-#include <click/standard/scheduleinfo.hh>
 #include <click/task.hh>
-#include <stdio.h>
 
 CLICK_DECLS
 
-ToShmem::ToShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
-                            _count(0), _task(this) {
-}
+/*
+ * receives packets from a COS ring
+ */
 
-ToShmem::~ToShmem() {
-}
+class FromRing : public Element {
+public:
+    FromRing();
+    ~FromRing();
 
-int ToShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
-	if (Args(conf, this, errh).read_p("SHMEM_PTR", IntArg(), _shmem_ptr).read_p(
-			"SHMEM_SIZE", IntArg(), _shmem_size).complete() < 0)
-		return -1;
+    const char *class_name() const { return "FromRing"; }
+    const char *port_count() const { return "0/1"; }
+    const char *processing() const { return "/h"; }
+    int configure_phase() const { return CONFIGURE_PHASE_FIRST; }
 
-	return 0;
-}
+    int configure(Vector<String> &, ErrorHandler *);
+    int initialize(ErrorHandler *);
+    void cleanup(CleanupStage);
 
-int ToShmem::initialize(ErrorHandler *errh) {
-	if (input_is_pull(0)) {
-		ScheduleInfo::initialize_task(this, &_task, errh);
-	}
+    void add_handlers();
 
-	return 0;
-}
+    bool run_task(Task *);
+    void push(int, Packet *p);
 
-void ToShmem::cleanup(CleanupStage stage) {
-}
+private:
+    unsigned long _ring_ptr;
+    int _count;
+    Task _task;
 
-void ToShmem::push(int port, Packet *p) {
-       printf("next_call_sinv\n");
-       next_call_sinv();
-       printf("return next_call_sinv\n");
-}
-
-bool ToShmem::run_task(Task *) {
-	return 0;
-}
-
-void ToShmem::add_handlers() {
-	add_read_handler("count", read_handler, 0);
-	add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
-}
-
-String ToShmem::read_handler(Element* e, void *thunk) {
-	return String(static_cast<ToShmem*>(e)->_count);
-}
-
-int ToShmem::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
-	static_cast<ToShmem*>(e)->_count = 0;
-	return 0;
-}
+    static String read_handler(Element* e, void *thunk);
+    static int reset_counts(const String &, Element *e, void *, ErrorHandler *);
+};
 
 CLICK_ENDDECLS
-EXPORT_ELEMENT(ToShmem)
+#endif

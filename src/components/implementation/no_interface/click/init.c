@@ -14,7 +14,7 @@ nfid_t this_nf_id = 0;
  */
 int conf_file_idx = 0;
 
-#define MAX_CONF_FILES 2
+#define MAX_CONF_FILES 3
 char *conf_files[MAX_CONF_FILES];
 
 static void 
@@ -22,6 +22,7 @@ setup_conf_files(void)
 {
        conf_files[0] = &_binary_conf_file1_start;
        conf_files[1] = &_binary_conf_file2_start;
+       conf_files[1] = &_binary_conf_file3_start;
 
        /*
        * Mark the end of the configuration file.
@@ -30,6 +31,7 @@ setup_conf_files(void)
        */
        *(char *)(&_binary_conf_file1_end - 1) = '\0';
        *(char *)(&_binary_conf_file2_end - 1) = '\0';
+       *(char *)(&_binary_conf_file3_end - 1) = '\0';
 }
 
 void 

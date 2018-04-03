@@ -50,7 +50,7 @@
 CLICK_DECLS
 
 FromShmem::FromShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR), _shmem_size(DEFAULT_SHMEM_SIZE), 
+		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
                             _count(0), _task(this) {
 }
 

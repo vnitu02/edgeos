@@ -37,7 +37,7 @@
  *
  *     THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
-#include "toshmem.hh"
+#include "toring.hh"
 
 #include <click/args.hh>
 #include <click/error.hh>
@@ -48,23 +48,29 @@
 
 CLICK_DECLS
 
-ToShmem::ToShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
-                            _count(0), _task(this) {
+ToRing::ToRing() :
+		_ring_ptr(DEFAULT_SHMEM_ADDR1), _task(this), _count(0)
+{
 }
 
-ToShmem::~ToShmem() {
+ToRing::~ToRing()
+{
 }
 
-int ToShmem::configure(Vector<String> &conf, ErrorHandler *errh) {
-	if (Args(conf, this, errh).read_p("SHMEM_PTR", IntArg(), _shmem_ptr).read_p(
-			"SHMEM_SIZE", IntArg(), _shmem_size).complete() < 0)
+int
+ToRing::configure(Vector<String> &conf, ErrorHandler *errh)
+{
+	if (Args(conf, this, errh)
+                     .read_p("SHMEM_PTR", IntArg(), _ring_ptr)
+                     .complete() < 0)
 		return -1;
 
 	return 0;
 }
 
-int ToShmem::initialize(ErrorHandler *errh) {
+int
+ToRing::initialize(ErrorHandler *errh)
+{
 	if (input_is_pull(0)) {
 		ScheduleInfo::initialize_task(this, &_task, errh);
 	}
@@ -72,32 +78,38 @@ int ToShmem::initialize(ErrorHandler *errh) {
 	return 0;
 }
 
-void ToShmem::cleanup(CleanupStage stage) {
+void 
+ToRing::cleanup(CleanupStage stage)
+{
 }
 
-void ToShmem::push(int port, Packet *p) {
-       printf("next_call_sinv\n");
-       next_call_sinv();
-       printf("return next_call_sinv\n");
+void
+ToRing::push(int port, Packet *p)
+{
+       //transform packet to a raw packet
+       //enwue the packet in the ring
+       //(optional) siv to the MCA
 }
 
-bool ToShmem::run_task(Task *) {
+bool
+ToRing::run_task(Task *)
+{
 	return 0;
 }
 
-void ToShmem::add_handlers() {
-	add_read_handler("count", read_handler, 0);
-	add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
+void ToRing::add_handlers() {
+       add_read_handler("count", read_handler, 0);
+       add_write_handler("reset_counts", reset_counts, 0, Handler::BUTTON);
 }
 
-String ToShmem::read_handler(Element* e, void *thunk) {
-	return String(static_cast<ToShmem*>(e)->_count);
+String ToRing::read_handler(Element* e, void *thunk) {
+       return String(static_cast<ToRing*>(e)->_count);
 }
 
-int ToShmem::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
-	static_cast<ToShmem*>(e)->_count = 0;
-	return 0;
+int ToRing::reset_counts(const String &, Element *e, void *, ErrorHandler *) {
+       static_cast<ToRing*>(e)->_count = 0;
+       return 0;
 }
 
 CLICK_ENDDECLS
-EXPORT_ELEMENT(ToShmem)
+EXPORT_ELEMENT(ToRing)
