@@ -46,7 +46,7 @@
 #include <click/task.hh>
 
 extern "C" {
-#include "utils.h"
+#include <eos_utils.h>
 }
 
 CLICK_DECLS

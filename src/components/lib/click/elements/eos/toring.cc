@@ -46,6 +46,11 @@
 #include <click/task.hh>
 #include <stdio.h>
 
+extern "C" {
+       #include <eos_ring.h>
+       #include <eos_pkt.h>
+}
+
 CLICK_DECLS
 
 ToRing::ToRing() :
@@ -86,9 +91,19 @@ ToRing::cleanup(CleanupStage stage)
 void
 ToRing::push(int port, Packet *p)
 {
-       //transform packet to a raw packet
-       //enwue the packet in the ring
-       //(optional) siv to the MCA
+       struct eos_ring *output_ring = get_output_ring((void *)_ring_ptr);
+
+       printf("ToRing %p\n", output_ring);
+
+       eos_pkt_allocate(output_ring, p->length());
+       printf("ToRing\n");
+       eos_pkt_send(output_ring, (void *)p->data(), p->length());
+       printf("ToRing\n");
+       /*
+       * TODO: Click packets should be recycled.
+       * We cannot do it here because the packet 
+       * is asynchronously copied by MCA
+       */
 }
 
 bool

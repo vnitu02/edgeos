@@ -201,7 +201,11 @@ fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg 
        struct cos_compinfo *parent_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
        struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
        vaddr_t allocated_data_seg;
-       
+      
+       assert(text_seg);
+       assert(data_seg);
+       assert(ring_seg);
+ 
        _fwp_fork(parent_cinfo, chld_info, ring_seg, s_addr, conf_file_idx);
 
        allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, s_addr); 
@@ -224,13 +228,20 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        mem1.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
        mem1.size = DEFAULT_SHMEM_SIZE;
        mem1.map_at = DEFAULT_SHMEM_ADDR1;
+       mem2.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
+       mem2.size = DEFAULT_SHMEM_SIZE;
+       mem2.map_at = DEFAULT_SHMEM_ADDR2;
 
        chains[0].first_nf = &chld_infos[next_nfid];
-       chld_infos[next_nfid].next = &chld_infos[next_nfid+1];
-
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
        next_nfid++;
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 1);
+       
+       chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1);
+       next_nfid++;
+       
+       chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2);
        next_nfid++;
 
        /*allocate the sinv capability for next_call*/
@@ -243,5 +254,5 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
                      BOOT_CAPTBL_NEXT_SINV_CAP, boot_cinfo, next_call_sinvcap);
        assert(ret == 0);
 
-       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-2].initaep));
+       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-3].initaep));
 }

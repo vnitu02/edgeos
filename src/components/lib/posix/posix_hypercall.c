@@ -115,7 +115,7 @@ cos_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
               return MAP_FAILED;
        }
 
-       nf_hyp_malloc(length, &addr);
+       nf_hyp_malloc(length, (vaddr_t *)&addr);
        if (!addr){
               ret = (void *) -1;
        } else {
