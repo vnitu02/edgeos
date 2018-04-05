@@ -49,6 +49,7 @@ distclean:
 # with a new shell.
 	make -C posix clean
 	make -C libcxx clean
+	make -C click clean
 	# make -C dpdk clean
 
 musl:

@@ -41,9 +41,9 @@ DPDKFLAGS=-march=native -D_GNU_SOURCE -DRTE_MACHINE_CPUFLAG_SSE -DRTE_MACHINE_CP
 
 INC_PATH=-I./ -I$(CDIR)/include/ -I$(CDIR)/interface/ -I$(SHAREDINC)
 SHARED_FLAGS=-fno-merge-constants -nostdinc -nostdlib -fno-pic
-OPT= -g
-#OPT= -O3
-CFLAGS=-m32 -D__x86__ -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -fno-stack-protector -fno-omit-frame-pointer -Wno-unused-variable -fvar-tracking $(INC_PATH) $(MUSLINC) $(LWIPINC) $(LUAINC) $(DPDKINC) $(DPDKFLAGS) $(OPT) $(SHARED_FLAGS)
+#OPT= -g
+OPT= -O3
+CFLAGS=-m32 -D__x86__ -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -fno-stack-protector -fno-omit-frame-pointer -Wno-unused-variable -fvar-tracking $(INC_PATH) $(MUSLINC) $(LWIPINC) $(LUAINC) $(OPT) $(SHARED_FLAGS) $(DPDKINC) $(DPDKFLAGS)
 CXXFLAGS=-fno-exceptions -fno-threadsafe-statics -Wno-write-strings $(CFLAGS)
 LDFLAGS=-melf_i386
 MUSLCFLAGS=$(CFLAGS) -lc -lgcc -Xlinker -r
