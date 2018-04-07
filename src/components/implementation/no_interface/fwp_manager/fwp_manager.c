@@ -2,6 +2,7 @@
 #include <sl.h>
 
 #include "fwp_manager.h"
+#include "eos_ring.h"
 
 /* Assembly function for sinv from new component */
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
@@ -80,6 +81,9 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
        for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
              cos_mem_alias_at(fork_cinfo, (ring_seg->map_at + dest), parent_cinfo_l, (ring_seg->addr + dest));
        }
+
+       /* initialize rings*/
+       eos_rings_init((void *)ring_seg->addr, (void *)ring_seg->map_at);
 
        fork_info->conf_file_idx = conf_file_idx;
        fork_info->nf_id = next_nfid;

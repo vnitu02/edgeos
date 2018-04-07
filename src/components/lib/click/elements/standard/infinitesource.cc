@@ -88,7 +88,7 @@ InfiniteSource::configure(Vector<String> &conf, ErrorHandler *errh)
     else
 	_end_h = 0;
 
-    setup_packet();
+    //setup_packet();
 
     return 0;
 }
@@ -122,7 +122,8 @@ InfiniteSource::run_task(Task *)
     if (_limit >= 0 && _count + n >= (ucounter_t) _limit)
 	n = (_count > (ucounter_t) _limit ? 0 : _limit - _count);
     for (int i = 0; i < n; i++) {
-	Packet *p = _packet;
+	//Packet *p = _packet->clone();
+	Packet *p = Packet::make(_data.data(), _data.length());
 	if (_timestamp)
 	    p->timestamp_anno().assign_now();
 	output(0).push(p);

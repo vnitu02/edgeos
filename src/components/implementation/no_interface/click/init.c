@@ -56,6 +56,6 @@ cos_init(void *args)
               nf_hyp_checkpoint(init_data.nf_id);
               //run the configuration file once
               run_driver_once();
-              nf_hyp_clean();
+              //nf_hyp_clean();
        }
 }
