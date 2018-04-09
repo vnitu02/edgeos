@@ -14,8 +14,8 @@ struct mca_conn {
 
 struct mca_conn *mca_conn_create(struct eos_ring *src, struct eos_ring *dst);
 void mca_conn_free(struct mca_conn *conn);
-void mca_init(void);
-void *mca_run(void);
+void mca_init(struct cos_compinfo *parent_cinfo);
+void mca_run(void *d);
 
 #endif /* __EOS_MCA_H__ */
 

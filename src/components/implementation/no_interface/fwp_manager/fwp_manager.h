@@ -10,6 +10,11 @@
 #define MAX_NUM_NFs         10            /* This also includes the booter and the initial component*/
 #define MAX_NUM_CHAINS      2             /* The maximum number of chains in the system*/
 
+/* Ensure this is the same as what is in sl_mod_fprr.c */
+#define SL_FPRR_NPRIOS 32
+#define LOWEST_PRIORITY (SL_FPRR_NPRIOS - 1)
+#define LOW_PRIORITY (LOWEST_PRIORITY - 1)
+
 struct mem_seg {
        vaddr_t addr;
        size_t size;
@@ -28,6 +33,8 @@ struct click_info {
 struct nf_chain {
        struct click_info *first_nf;
 } chains[MAX_NUM_CHAINS];
+
+struct sl_thd  *mca_thd;
 
 struct mem_seg templates[MAX_NUM_NFs];
 

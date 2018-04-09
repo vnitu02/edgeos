@@ -3,6 +3,7 @@
 
 #include "fwp_manager.h"
 #include "eos_ring.h"
+#include "eos_mca.h"
 
 /* Assembly function for sinv from new component */
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
@@ -184,6 +185,7 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
        chld_info->initaep = sl_thd_initaep_alloc(&chld_info->def_cinfo, NULL, 0, 0, 0);
        assert(chld_info->initaep);
+       sl_thd_param_set(chld_info->initaep, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
 
        _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
 
@@ -222,41 +224,62 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
               unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
        struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
-       struct mem_seg mem1, mem2; 
+       struct mem_seg mem1, mem2;
+       struct mca_conn *conn;
+       struct eos_ring *out1, *in2;
+       vaddr_t dest;
        int ret;
        sinvcap_t next_call_sinvcap;
 
        cinfo_offset = comp_info_offset;
        s_addr = start_addr;
 
+       mca_init(boot_cinfo);
+       mca_thd = sl_thd_alloc(mca_run, NULL);
+       sl_thd_param_set(mca_thd, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+
        mem1.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
        mem1.size = DEFAULT_SHMEM_SIZE;
        mem1.map_at = DEFAULT_SHMEM_ADDR1;
+       if (!cos_pgtbl_intern_alloc(boot_cinfo, BOOT_CAPTBL_SELF_PT, mem1.map_at, mem1.size)) BUG();
+       for (dest = 0; dest < mem1.size; dest += PAGE_SIZE) {
+             cos_mem_alias_at(boot_cinfo, (mem1.map_at + dest), boot_cinfo, (mem1.addr + dest));
+       }
+
        mem2.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
        mem2.size = DEFAULT_SHMEM_SIZE;
        mem2.map_at = DEFAULT_SHMEM_ADDR2;
+       if (!cos_pgtbl_intern_alloc(boot_cinfo, BOOT_CAPTBL_SELF_PT, mem2.map_at, mem2.size)) BUG();
+       for (dest = 0; dest < mem2.size; dest += PAGE_SIZE) {
+             cos_mem_alias_at(boot_cinfo, (mem2.map_at + dest), boot_cinfo, (mem2.addr + dest));
+       }
+
+       out1 = get_output_ring((void *)mem1.addr);
+       in2 = get_input_ring((void *)mem2.addr);
+       conn = mca_conn_create(out1, in2);
 
        chains[0].first_nf = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
        next_nfid++;
-       
+
        chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1);
        next_nfid++;
        
-       chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
+       /*chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2);
-       next_nfid++;
+       next_nfid++;*/
 
        /*allocate the sinv capability for next_call*/
-       next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
+       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
                             cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap, 
                             sinv_next_call, 0);
        assert(next_call_sinvcap > 0);
        ret = cos_cap_cpy_at(
                      cos_compinfo_get(&chld_infos[next_nfid-2].def_cinfo),
                      BOOT_CAPTBL_NEXT_SINV_CAP, boot_cinfo, next_call_sinvcap);
-       assert(ret == 0);
+       assert(ret == 0);*/
 
-       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-3].initaep));
+       sl_sched_loop();
+       mca_conn_free(conn);
 }

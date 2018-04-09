@@ -12,4 +12,5 @@
 // in /var/log/messages), and to the file '/click/messages'.
 
 FromRing
-       -> ToShmem;
+       -> Print(ok)
+       -> Discard;

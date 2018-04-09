@@ -22,7 +22,7 @@ setup_conf_files(void)
 {
        conf_files[0] = &_binary_conf_file1_start;
        conf_files[1] = &_binary_conf_file2_start;
-       conf_files[1] = &_binary_conf_file3_start;
+       conf_files[2] = &_binary_conf_file3_start;
 
        /*
        * Mark the end of the configuration file.
@@ -55,7 +55,7 @@ cos_init(void *args)
               click_initialize(&init_data);
               nf_hyp_checkpoint(init_data.nf_id);
               //run the configuration file once
-              run_driver_once();
+              run_driver();
               //nf_hyp_clean();
        }
 }

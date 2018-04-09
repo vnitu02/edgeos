@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include <malloc.h>
+#include <cos_kernel_api.h>
 #include "eos_mca.h"
 #include "eos_pkt.h"
 
@@ -87,14 +87,12 @@ mca_scan(struct mca_conn **list)
 	}
 }
 
-void *
-mca_run(void)
+void
+mca_run(void *d)
 {
 	while (1) {
 		mca_scan(&lh);
 	}
-
-	return NULL;
 }
 
 struct mca_conn *
@@ -118,13 +116,13 @@ mca_conn_free(struct mca_conn *conn)
 }
 
 void
-mca_init(void)
+mca_init(struct cos_compinfo *parent_cinfo)
 {
 	int i, total_conn_sz;
 
 	lh = NULL;
 	total_conn_sz = sizeof(struct mca_conn) * MCA_CONN_MAX_NUM;
-	fl = (struct mca_conn *)malloc(total_conn_sz);
+       fl = (struct mca_conn *)cos_page_bump_allocn(parent_cinfo, total_conn_sz);
 	assert(fl);
 	memset(fl, 0, total_conn_sz);
 	for(i=0; i<MCA_CONN_MAX_NUM-1; i++) {
