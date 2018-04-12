@@ -96,6 +96,7 @@ ToRing::push(int port, Packet *p)
 
        eos_pkt_send(output_ring, (void *)p->data(), p->length());
        eos_pkt_collect(input_ring, output_ring);
+       p->kill();
 }
 
 bool

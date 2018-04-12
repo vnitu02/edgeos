@@ -20,6 +20,11 @@
 #include <click/error.hh>
 #include <click/args.hh>
 #include <click/standard/scheduleinfo.hh>
+
+extern "C"{
+#include <eos_pkt.h>
+}
+
 CLICK_DECLS
 
 Discard::Discard()
@@ -55,7 +60,11 @@ Discard::initialize(ErrorHandler *errh)
 void
 Discard::push(int, Packet *p)
 {
+    struct eos_ring *input_ring = get_input_ring((void *)DEFAULT_SHMEM_ADDR2);
+
     _count++;
+    eos_pkt_free(input_ring, (void *)p->data());
+    p->kill();
 }
 
 bool

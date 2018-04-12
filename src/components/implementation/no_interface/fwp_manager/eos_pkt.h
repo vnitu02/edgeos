@@ -14,7 +14,8 @@ eos_pkt_allocate(struct eos_ring *ring, int len)
 
 	fh  = cos_faa(&(ring->free_head), 1);
        rn  = GET_RING_NODE(ring, fh & EOS_RING_MASK);
-	assert(rn->state == PKT_FREE);
+       if (rn->state != PKT_FREE)
+              return NULL;
 	ret       = rn->pkt;
 	rn->state = PKT_EMPTY;
 	rn->pkt   = NULL;
@@ -22,11 +23,18 @@ eos_pkt_allocate(struct eos_ring *ring, int len)
 }
 
 static inline void
-eos_pkt_free(void *pkt)
+eos_pkt_free(struct eos_ring *ring, void *pkt)
 {
-	(void)pkt;
-	printc("pkt free not implemented\n");
-	assert(0);
+       struct eos_ring_node *n;
+
+       n = GET_RING_NODE(ring, ring->head & EOS_RING_MASK);
+       if (n->state == PKT_EMPTY) {
+              printf("free node %d\n", ring->head & EOS_RING_MASK);
+              n->pkt     = pkt;
+              n->pkt_len = EOS_PKT_MAX_SZ;
+              n->state   = PKT_FREE;
+              ring->head++;
+       }
 }
 
 static inline void
@@ -79,7 +87,7 @@ eos_pkt_collect(struct eos_ring *recv, struct eos_ring *sent)
 		rn->state   = PKT_FREE;
 		sn->pkt     = NULL;
 		sn->pkt_len = 0;
-		rn->state   = PKT_EMPTY;
+		sn->state   = PKT_EMPTY;
 		recv->head++;
 		sent->head++;
 	}

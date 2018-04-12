@@ -54,6 +54,7 @@ get_output_ring(void *rh){
        return output_ring;
 }
 
+/*We need both addresses in order to corectly page align*/
 static inline void
 eos_rings_init(void *booter_rh, void *comp_rh)
 {

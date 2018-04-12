@@ -59,7 +59,7 @@ mca_process(struct mca_conn *conn)
 	assert(sn->pkt_len);
 	fh  = cos_faa(&(dst->free_head), 1);
 	rn  = GET_RING_NODE(dst, fh & EOS_RING_MASK);
-	assert(rn->state == PKT_FREE);
+       if (rn->state != PKT_FREE) return;
 	assert(rn->pkt);
 	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;

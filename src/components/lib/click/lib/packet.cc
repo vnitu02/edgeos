@@ -27,13 +27,6 @@
 #if CLICK_USERLEVEL || CLICK_MINIOS || CLICK_COS
 # include <unistd.h>
 #endif
-
-extern "C"{
-       #include <eos_ring.h>
-       #include <eos_pkt.h>
-       #include <fwp_manager.h>
-}
-
 CLICK_DECLS
 
 /** @file packet.hh
@@ -374,18 +367,12 @@ WritablePacket::pool_allocate(uint32_t headroom, uint32_t length,
 	    packet_pool.pd = pd->next;
 	    --packet_pool.pdcount;
 	    p->_head = reinterpret_cast<unsigned char *>(pd);
-       } else {
-# if CLICK_COS
-           struct eos_ring *in_ring = get_input_ring((void *)DEFAULT_SHMEM_ADDR1);
-           p->_head = (unsigned char *)eos_pkt_allocate(in_ring, n);
-# else
-	    p->_head = new unsigned char[n];
-# endif
-           if (!p->_head) {
-	       delete p;
-	       return 0;
-	    }
-       }
+	} else if ((p->_head = new unsigned char[n]))
+	    /* OK */;
+	else {
+	    delete p;
+	    return 0;
+	}
 	p->_data = p->_head + headroom;
 	p->_tail = p->_data + length;
 	p->_end = p->_head + n;
@@ -483,12 +470,7 @@ Packet::alloc_data(uint32_t headroom, uint32_t length, uint32_t tailroom)
 	n = min_buffer_length;
     }
 # if CLICK_USERLEVEL || CLICK_MINIOS || CLICK_COS
-# if CLICK_USERLEVEL || CLICK_MINIOS
     unsigned char *d = new unsigned char[n];
-# elif CLICK_COS
-    struct eos_ring *out_ring = get_input_ring((void *)DEFAULT_SHMEM_ADDR1);
-    unsigned char *d = (unsigned char *)eos_pkt_allocate(out_ring, n);
-# endif
     if (!d)
 	return false;
     _head = d;
