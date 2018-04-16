@@ -1,6 +1,7 @@
+#include <cos_defkernel_api.h>
+/* #include "cos_eal_thd.h" */
+/* #include "sl.h" */
 #include "ninf.h"
-#include "cos_eal_thd.h"
-#include "sl.h"
 #include "ninf_util.h"
 
 #define NUM_MBUFS 8192
@@ -18,16 +19,14 @@ struct rte_mempool *mbuf_pool;
 cos_eal_thd_t
 cos_eal_thd_curr(void)
 {
-	return (cos_eal_thd_t)(sl_thdid());
+	/* FIXME: this assumes dpdk does not use any threading stuff, as interrupt is disabled */
+	return 0;
 }
 
 int
 cos_eal_thd_create(cos_eal_thd_t *thd_id, void *(*func)(void *), void *arg)
 {
-	struct sl_thd *new_thd;
-	new_thd = sl_thd_alloc((cos_thd_fn_t)func, arg);
-	assert(new_thd);
-	return new_thd->thdid;
+	return 0;
 }
 
 void *
