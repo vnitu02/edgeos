@@ -9,3 +9,4 @@ ADDITIONAL_LIBS=-lcobj_format -lcos_defkernel_api -lcos_kernel_api -lsl -lheap -
 
 include ../../Makefile.subsubdir
 MANDITORY_LIB=simple_stklib.o
+CFLAGS+=-march=native
