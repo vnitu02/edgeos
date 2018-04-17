@@ -80,6 +80,7 @@ boot_comp_map_memory(struct cobj_header *h, spdid_t spdid)
 
 		dest_daddr = sect->vaddr;
 		left       = cobj_sect_size(h, i);
+		if (i+1 < (int)h->nsect) left = cobj_sect_addr(h, i+1) - cobj_sect_addr(h, i);
 
 		/* previous section overlaps with this one, don't remap! */
 		if (round_to_page(dest_daddr) == prev_map) {
