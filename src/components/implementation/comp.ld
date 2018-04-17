@@ -43,10 +43,6 @@ SECTIONS
 		LONG(0)
 		__CRECOV_END__ = .;
 	}
-	.got : {
-		_GLOBAL_OFFSET_TABLE_ = .;
-		*(.got)
-	}
 	.kmem : { *(.kmem*) }
 	.cinfo : { *(.cinfo*) }
 	.data : { *(.data*) }
