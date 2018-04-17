@@ -236,23 +236,23 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
        next_nfid++;
        
-       chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
+       /*chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1);
        next_nfid++;
        
        chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2);
-       next_nfid++;
+       next_nfid++;*/
 
        /*allocate the sinv capability for next_call*/
-       next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
+       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
                             cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap, 
                             sinv_next_call, 0);
        assert(next_call_sinvcap > 0);
        ret = cos_cap_cpy_at(
                      cos_compinfo_get(&chld_infos[next_nfid-2].def_cinfo),
                      BOOT_CAPTBL_NEXT_SINV_CAP, boot_cinfo, next_call_sinvcap);
-       assert(ret == 0);
+       assert(ret == 0);*/
 
-       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-3].initaep));
+       cos_thd_switch(sl_thd_thdcap(chld_infos[next_nfid-1].initaep));
 }
