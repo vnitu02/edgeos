@@ -8,14 +8,13 @@
 /* Assembly function for sinv from new component */
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
 
-unsigned long cinfo_offset; /* The ofset of the cos_component_information in the data segment*/
-vaddr_t s_addr; /* The address where the .text segment should be mapped */
-
 /* 
  * IDs one and two are given to the booter 
  * component and the first loaded component
  */
 long next_nfid = 2;
+
+vaddr_t shmem_addr; 
 
 static void
 _alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
@@ -60,13 +59,15 @@ fwp_ci_get(struct cobj_header *h, vaddr_t *comp_info)
  */
 static void
 _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, 
-              struct mem_seg *ring_seg, vaddr_t vm_base, int conf_file_idx)
+              struct mem_seg *text_seg, struct mem_seg *data_seg, 
+              struct mem_seg *ring_seg, int conf_file_idx, vaddr_t start_addr)
 {
        struct cos_aep_info *fork_aep = cos_sched_aep_get(&fork_info->def_cinfo);
        struct cos_compinfo *fork_cinfo = cos_compinfo_get(&fork_info->def_cinfo);
        pgtblcap_t ckpt;
        captblcap_t ckct;
-       vaddr_t dest;
+       vaddr_t dest, addr, heap_ptr;
+       unsigned long size;
 
        //printc("forking new click component\n");
        ckct = cos_captbl_alloc(parent_cinfo_l);
@@ -75,16 +76,18 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
        ckpt = cos_pgtbl_alloc(parent_cinfo_l);
        assert(ckpt);
 
-       cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, vm_base,
+       heap_ptr = round_up_to_pgd_page(shmem_addr + FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
+       cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, heap_ptr,
                             BOOT_CAPTBL_FREE, parent_cinfo_l);
 
-       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, ring_seg->map_at, ring_seg->size)) BUG();
+       size = heap_ptr - start_addr;
+       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
        for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
-             cos_mem_alias_at(fork_cinfo, (ring_seg->map_at + dest), parent_cinfo_l, (ring_seg->addr + dest));
+              cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
        }
 
        /* initialize rings*/
-       eos_rings_init((void *)ring_seg->addr, (void *)ring_seg->map_at);
+       eos_rings_init((void *)ring_seg->addr);
 
        fork_info->conf_file_idx = conf_file_idx;
        fork_info->nf_id = next_nfid;
@@ -94,17 +97,17 @@ static vaddr_t
 _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo, 
               struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr)
 {
-       unsigned long offset;
+       unsigned long offset, text_offset;
        vaddr_t allocated_data_seg;
-       vaddr_t dest;
 
        /*
        * Alias the text segment in the new component
        */ 
        for (offset = 0; offset < text_seg->size; offset += PAGE_SIZE) {
-              dest = cos_mem_alias(child_cinfo, parent_cinfo, text_seg->addr + offset);
-              assert(dest);
+              cos_mem_alias_at(child_cinfo, start_addr + offset, 
+                                   parent_cinfo, text_seg->addr + offset);
        }
+       text_offset = offset;
 
        /*
        * allocate mem for the data segment and populate it
@@ -117,8 +120,8 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
        * Alias the data segment in the new component
        */
        for (offset = 0; offset < data_seg->size; offset += PAGE_SIZE) {
-              dest = cos_mem_alias(child_cinfo, parent_cinfo, allocated_data_seg + offset);
-              assert(dest);
+              cos_mem_alias_at(child_cinfo, start_addr + text_offset + offset,
+                                   parent_cinfo, allocated_data_seg + offset);
        }
 
        return allocated_data_seg;
@@ -202,7 +205,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
  * fork a new click component using the configuration file at *conf_str
  */
 static void 
-fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg *data_seg, struct mem_seg *ring_seg, int conf_file_idx)
+fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg *data_seg,
+              struct mem_seg *ring_seg, int conf_file_idx, unsigned long cinfo_offset, vaddr_t start_addr)
 {
        struct cos_compinfo *parent_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
        struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
@@ -212,15 +216,45 @@ fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg 
        assert(data_seg);
        assert(ring_seg);
  
-       _fwp_fork(parent_cinfo, chld_info, ring_seg, s_addr, conf_file_idx);
+       _fwp_fork(parent_cinfo, chld_info, text_seg, data_seg, ring_seg, conf_file_idx, start_addr);
 
-       allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, s_addr); 
+       allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, start_addr);
 
        _fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset);
 }
 
+static void *
+fwp_get_shmem(int shmem_idx)
+{
+       char *seg;
+       assert(shmem_idx < FWP_MAX_MEMSEGS);
+       seg = (char *)shmem_addr + shmem_idx * FWP_MEMSEG_SIZE;
+       return (void *)seg;
+}
+
+static void
+fwp_allocate_shmem(vaddr_t start_addr)
+{
+       vaddr_t empty_page, next_pgd, map_shmem_at, addr;
+       struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
+
+       /*FIXME An ugly hack*/
+       /*
+       * We assume that the binary loaded by the llbooter goes in an PGD(4MB)
+       * amd we load the SHMEM after this PGD
+       */
+       next_pgd = round_up_to_pgd_page(start_addr + 1);
+       map_shmem_at = (cos_get_heap_ptr() > next_pgd) ? cos_get_heap_ptr() : next_pgd;
+       empty_page = (vaddr_t)cos_page_bump_alloc(boot_cinfo);
+       while (addr < map_shmem_at)
+              addr = cos_mem_alias(boot_cinfo, boot_cinfo, empty_page);
+
+       shmem_addr = (vaddr_t)cos_page_bump_allocn(boot_cinfo, FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
+       printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
+}
+
 void
-fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, 
+fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
               unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
        struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
@@ -230,44 +264,35 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        vaddr_t dest;
        int ret;
        sinvcap_t next_call_sinvcap;
-
-       cinfo_offset = comp_info_offset;
-       s_addr = start_addr;
+       printc("start addr %lx\n", start_addr);
 
        mca_init(boot_cinfo);
        mca_thd = sl_thd_alloc(mca_run, NULL);
        sl_thd_param_set(mca_thd, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
 
-       mem1.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
-       mem1.size = DEFAULT_SHMEM_SIZE;
-       mem1.map_at = DEFAULT_SHMEM_ADDR1;
-       if (!cos_pgtbl_intern_alloc(boot_cinfo, BOOT_CAPTBL_SELF_PT, mem1.map_at, mem1.size)) BUG();
-       for (dest = 0; dest < mem1.size; dest += PAGE_SIZE) {
-             cos_mem_alias_at(boot_cinfo, (mem1.map_at + dest), boot_cinfo, (mem1.addr + dest));
-       }
+       fwp_allocate_shmem(start_addr);
+       mem1.addr = (vaddr_t)fwp_get_shmem(0);
+       mem1.size = FWP_MEMSEG_SIZE;
 
-       mem2.addr = (vaddr_t) cos_page_bump_allocn(boot_cinfo, DEFAULT_SHMEM_SIZE);
-       mem2.size = DEFAULT_SHMEM_SIZE;
-       mem2.map_at = DEFAULT_SHMEM_ADDR2;
-       if (!cos_pgtbl_intern_alloc(boot_cinfo, BOOT_CAPTBL_SELF_PT, mem2.map_at, mem2.size)) BUG();
-       for (dest = 0; dest < mem2.size; dest += PAGE_SIZE) {
-             cos_mem_alias_at(boot_cinfo, (mem2.map_at + dest), boot_cinfo, (mem2.addr + dest));
-       }
+       mem2.addr = (vaddr_t)fwp_get_shmem(1);
+       mem2.size = FWP_MEMSEG_SIZE;
 
        out1 = get_output_ring((void *)mem1.addr);
        in2 = get_input_ring((void *)mem2.addr);
        conn = mca_conn_create(out1, in2);
 
        chains[0].first_nf = &chld_infos[next_nfid];
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0);
+       chld_infos[next_nfid].shmem_addr = mem1.addr;
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0, comp_info_offset, start_addr);
        next_nfid++;
 
        chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1);
+       chld_infos[next_nfid].shmem_addr = mem2.addr;
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1, comp_info_offset, start_addr);
        next_nfid++;
        
        /*chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2);
+       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2, comp_info_offset, start_addr);
        next_nfid++;*/
 
        /*allocate the sinv capability for next_call*/

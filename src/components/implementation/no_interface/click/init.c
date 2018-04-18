@@ -13,6 +13,7 @@ nfid_t this_nf_id = 0;
  * The index of the conf file to be loaded
  */
 int conf_file_idx = 0;
+vaddr_t shmem_addr;
 
 #define MAX_CONF_FILES 3
 char *conf_files[MAX_CONF_FILES];
@@ -40,6 +41,7 @@ cos_init(void *args)
        struct click_init init_data;
 
        nf_hyp_confidx_get(&conf_file_idx);
+       nf_hyp_get_shmem_addr(&shmem_addr);
 
        /*
        * idx=-1 means that the conf file is already parsed
