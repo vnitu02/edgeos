@@ -37,6 +37,14 @@ fwp_confidx_get(void *token)
        return child_info->conf_file_idx;
 }
 
+static vaddr_t
+fwp_shmem_get(void *token)
+{
+       struct click_info *child_info = (struct click_info *) token;
+
+       return child_info->shmem_addr;
+}
+
 /*
  *  * core function for checkpointing a Click component
  *   */
@@ -109,6 +117,14 @@ nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
               int conf_file_idx;
               conf_file_idx = fwp_confidx_get(token);
               *ret2 = (u32_t)conf_file_idx;
+
+              break;
+       }
+       case NF_SHMEM_GET:
+       {
+              vaddr_t shmem_addr;
+              shmem_addr = fwp_shmem_get(token);
+              *ret2 = (u32_t)shmem_addr;
 
               break;
        }
