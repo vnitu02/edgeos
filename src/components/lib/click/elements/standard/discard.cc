@@ -60,7 +60,7 @@ Discard::initialize(ErrorHandler *errh)
 void
 Discard::push(int, Packet *p)
 {
-    struct eos_ring *input_ring = get_input_ring((void *)DEFAULT_SHMEM_ADDR2);
+    struct eos_ring *input_ring = get_input_ring(shmem_addr);
 
     _count++;
     eos_pkt_free(input_ring, (void *)p->data());

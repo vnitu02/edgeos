@@ -52,7 +52,7 @@
 CLICK_DECLS
 
 FromRing::FromRing() :
-		_ring_ptr(DEFAULT_SHMEM_ADDR2), _count(0), _task(this) {
+		_ring_ptr((unsigned long)shmem_addr), _count(0), _task(this) {
 }
 
 FromRing::~FromRing() {

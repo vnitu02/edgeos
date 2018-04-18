@@ -54,7 +54,7 @@ extern "C" {
 CLICK_DECLS
 
 ToRing::ToRing() :
-		_ring_ptr(DEFAULT_SHMEM_ADDR1), _task(this), _count(0)
+		_ring_ptr((unsigned long)shmem_addr), _task(this), _count(0)
 {
 }
 

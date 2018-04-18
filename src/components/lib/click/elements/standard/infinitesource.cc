@@ -122,7 +122,7 @@ InfiniteSource::cleanup(CleanupStage)
 bool
 InfiniteSource::run_task(Task *)
 {
-    struct eos_ring *in_ring = get_input_ring((void *)DEFAULT_SHMEM_ADDR1);
+    struct eos_ring *in_ring = get_input_ring(shmem_addr);
     if (!_active || !_nonfull_signal)
 	return false;
     int n = _burstsize;
