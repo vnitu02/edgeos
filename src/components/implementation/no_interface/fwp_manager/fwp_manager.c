@@ -14,7 +14,12 @@ extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2
  */
 long next_nfid = 2;
 
-vaddr_t shmem_addr; 
+vaddr_t shmem_addr;
+
+struct mem_seg *t_seg;
+struct mem_seg *d_seg;
+unsigned long cinfo_offset;
+vaddr_t s_addr;
 
 static void
 _alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
@@ -253,51 +258,39 @@ fwp_allocate_shmem(vaddr_t start_addr)
        printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
 }
 
-void
-fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
-              unsigned long comp_info_offset, vaddr_t sinv_next_call)
-{
-       struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
-       struct mem_seg mem1, mem2;
-       struct mca_conn *conn;
+/*
+ * create a chain of two NFs linked by MCA
+ */
+static struct nf_chain *
+fwp_create_chain1(void){
        struct eos_ring *out1, *in2;
-       vaddr_t dest;
-       int ret;
-       sinvcap_t next_call_sinvcap;
-       printc("start addr %lx\n", start_addr);
+       struct mca_conn *conn;
+       /* the first nf_id in our system is 2*/
+       int nfid = 2;
+       struct click_info *nf1 = &chld_infos[nfid];
+       struct click_info *nf2 = &chld_infos[nfid+1];
 
-       mca_init(boot_cinfo);
-       mca_thd = sl_thd_alloc(mca_run, NULL);
-       sl_thd_param_set(mca_thd, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+       chains[0].first_nf = nf1;
+       nf1->next = nf2;
 
-       fwp_allocate_shmem(start_addr);
-       mem1.addr = (vaddr_t)fwp_get_shmem(0);
-       mem1.size = FWP_MEMSEG_SIZE;
+       nf1->shmem_addr = (vaddr_t)fwp_get_shmem(0);
+       nf2->shmem_addr = (vaddr_t)fwp_get_shmem(1);
 
-       mem2.addr = (vaddr_t)fwp_get_shmem(1);
-       mem2.size = FWP_MEMSEG_SIZE;
+       nf1->conf_file_idx = 0;
+       nf2->conf_file_idx = 1;
 
-       out1 = get_output_ring((void *)mem1.addr);
-       in2 = get_input_ring((void *)mem2.addr);
+       out1 = get_output_ring((void *)nf1->shmem_addr);
+       in2 = get_input_ring((void *)nf2->shmem_addr);
+       /*TODO should be closed*/
        conn = mca_conn_create(out1, in2);
 
-       chains[0].first_nf = &chld_infos[next_nfid];
-       chld_infos[next_nfid].shmem_addr = mem1.addr;
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem1, 0, comp_info_offset, start_addr);
-       next_nfid++;
-
-       chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
-       chld_infos[next_nfid].shmem_addr = mem2.addr;
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 1, comp_info_offset, start_addr);
-       next_nfid++;
-       
        /*chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
        fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2, comp_info_offset, start_addr);
        next_nfid++;*/
 
        /*allocate the sinv capability for next_call*/
-       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo, 
-                            cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap, 
+       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo,
+                            cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap,
                             sinv_next_call, 0);
        assert(next_call_sinvcap > 0);
        ret = cos_cap_cpy_at(
@@ -305,6 +298,54 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
                      BOOT_CAPTBL_NEXT_SINV_CAP, boot_cinfo, next_call_sinvcap);
        assert(ret == 0);*/
 
+       return &chains[0];
+}
+
+/*
+ * actually allocate the chain NFs
+ */
+static void
+fwp_allocate_chain(struct nf_chain *chain){
+       struct click_info *this_nf;
+
+       list_for_each_nf(this_nf, chain) {
+              struct mem_seg mem_seg;
+
+              mem_seg.addr = this_nf->shmem_addr;
+              mem_seg.size = FWP_MEMSEG_SIZE;
+              fwp_fork(this_nf, t_seg, d_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr);
+       }
+}
+
+static void
+fwp_init(void)
+{
+       struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
+
+       mca_init(boot_cinfo);
+       mca_thd = sl_thd_alloc(mca_run, NULL);
+       sl_thd_param_set(mca_thd, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+       fwp_allocate_shmem(s_addr);
+}
+
+void
+fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
+              unsigned long comp_info_offset, vaddr_t sinv_next_call)
+{
+       vaddr_t dest;
+       int ret;
+       sinvcap_t next_call_sinvcap;
+       struct nf_chain *chain;
+
+       t_seg = text_seg;
+       d_seg = data_seg;
+       cinfo_offset = comp_info_offset;
+       s_addr = start_addr;
+
+       fwp_init();
+
+       chain = fwp_create_chain1();
+       fwp_allocate_chain(chain);
+
        sl_sched_loop();
-       mca_conn_free(conn);
 }
