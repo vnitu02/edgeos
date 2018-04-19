@@ -1,6 +1,4 @@
 #include <cos_defkernel_api.h>
-/* #include "cos_eal_thd.h" */
-/* #include "sl.h" */
 #include "ninf.h"
 #include "ninf_util.h"
 
@@ -158,8 +156,8 @@ cos_init(void)
 	/* } */
 	check_all_ports_link_status(nb_ports, 3);
 
-	/* ninf_bride(); */
-	ninf_pktgen_client();
+	ninf_bride();
+	/* ninf_pktgen_client(); */
 
 halt:
 	printc("going to SPIN\n");
