@@ -4,16 +4,27 @@
 #include <cos_kernel_api.h>
 #include <cos_defkernel_api.h>
 
-#define DEFAULT_SHMEM_ADDR1 (0x80000000)
-#define DEFAULT_SHMEM_ADDR2 (0x81000000)
-#define DEFAULT_SHMEM_SIZE (1<<22)
-#define MAX_NUM_NFs         10            /* This also includes the booter and the initial component*/
-#define MAX_NUM_CHAINS      2             /* The maximum number of chains in the system*/
+#include "eos_ring.h"
+
+#define FWP_MAX_NUM_NFs         3000   /* This also includes the booter and the initial component*/
+#define FWP_MAX_NUM_CHAINS      1000   /* The maximum number of chains in the system*/
+
+#define FWP_RINGS_SIZE (2 * sizeof(struct eos_ring) + 2 * EOS_RING_SIZE * sizeof(struct eos_ring_node))
+#define FWP_MEMSEG_SIZE (round_up_to_page(FWP_RINGS_SIZE) + EOS_RING_SIZE * EOS_PKT_MAX_SZ)
+/*we suppose having one shared sgment per chain*/
+#define FWP_MAX_MEMSEGS FWP_MAX_NUM_CHAINS
+
+/* Ensure this is the same as what is in sl_mod_fprr.c */
+#define SL_FPRR_NPRIOS 32
+#define LOWEST_PRIORITY (SL_FPRR_NPRIOS - 1)
+#define LOW_PRIORITY (LOWEST_PRIORITY - 1)
+
+#define list_for_each_nf(pos, head) \
+       for(pos = (head)->first_nf; pos != NULL; pos = pos->next)
 
 struct mem_seg {
        vaddr_t addr;
        size_t size;
-       vaddr_t map_at;
 };
 
 struct click_info {
@@ -23,13 +34,17 @@ struct click_info {
        struct sl_thd               *initaep;
        vaddr_t                     booter_vaddr;        /*the address of this component's data segment in the booter*/
        struct click_info           *next;
-} chld_infos[MAX_NUM_NFs];
+       vaddr_t                     shmem_addr;
+} chld_infos[FWP_MAX_NUM_NFs];
 
 struct nf_chain {
        struct click_info *first_nf;
-} chains[MAX_NUM_CHAINS];
+       struct nf_chain *next;
+} chains[FWP_MAX_NUM_CHAINS];
 
-struct mem_seg templates[MAX_NUM_NFs];
+struct sl_thd  *mca_thd;
+
+struct mem_seg templates[FWP_MAX_NUM_NFs];
 
 void fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, 
               unsigned long comp_info_offset, vaddr_t sinv_next_call);

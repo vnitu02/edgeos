@@ -54,7 +54,7 @@ extern "C" {
 CLICK_DECLS
 
 ToRing::ToRing() :
-		_ring_ptr(DEFAULT_SHMEM_ADDR1), _task(this), _count(0)
+		_ring_ptr((unsigned long)shmem_addr), _task(this), _count(0)
 {
 }
 
@@ -91,19 +91,12 @@ ToRing::cleanup(CleanupStage stage)
 void
 ToRing::push(int port, Packet *p)
 {
+       struct eos_ring *input_ring = get_input_ring((void *)_ring_ptr);
        struct eos_ring *output_ring = get_output_ring((void *)_ring_ptr);
 
-       printf("ToRing %p\n", output_ring);
-
-       eos_pkt_allocate(output_ring, p->length());
-       printf("ToRing\n");
        eos_pkt_send(output_ring, (void *)p->data(), p->length());
-       printf("ToRing\n");
-       /*
-       * TODO: Click packets should be recycled.
-       * We cannot do it here because the packet 
-       * is asynchronously copied by MCA
-       */
+       eos_pkt_collect(input_ring, output_ring);
+       p->kill();
 }
 
 bool

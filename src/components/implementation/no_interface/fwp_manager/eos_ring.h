@@ -5,8 +5,8 @@
 #include <consts.h>
 #include <cos_types.h>
 
-#define EOS_PKT_MAX_SZ 1500
-#define EOS_RING_SIZE 1024
+#define EOS_PKT_MAX_SZ 2048 /*the same as Click*/
+#define EOS_RING_SIZE 128
 #define EOS_RING_MASK (EOS_RING_SIZE - 1)
 #define GET_RING_NODE(r, h) (&((r)->ring[(h)]))
 
@@ -31,8 +31,7 @@ struct eos_ring {
 	char pad2[2 * CACHE_LINE - sizeof(int)];
 	int mca_head;        /* mca access only */
 	char pad3[2 * CACHE_LINE - sizeof(int)];
-	int recv_head, recv_tail;    /* nf access only */
-	int sent_head, sent_tail;
+	int head, tail;    /* nf access only */
 };
 
 /**
@@ -55,14 +54,16 @@ get_output_ring(void *rh){
        return output_ring;
 }
 
+/*We need both addresses in order to corectly page align*/
 static inline void
 eos_rings_init(void *rh)
 {
        struct eos_ring *input_ring, *output_ring;
-	void *pkts, *end_of_rings;
+	char *pkts, *end_of_rings;
 	int i;
 
-	assert(((unsigned long)rh & PAGE_MASK) == 0);
+	assert(((unsigned long)rh & (~PAGE_MASK)) == 0);
+
        memset(rh, 0, sizeof(struct eos_ring));
 
        input_ring = (struct eos_ring *)rh;
@@ -71,8 +72,8 @@ eos_rings_init(void *rh)
        output_ring = (struct eos_ring *)((char *)input_ring->ring + EOS_RING_SIZE * sizeof(struct eos_ring_node));
        output_ring->ring = (struct eos_ring_node *)((char *)output_ring + sizeof(struct eos_ring));
 
-       end_of_rings = (struct eos_ring *)((char *)output_ring->ring + EOS_RING_SIZE * sizeof(struct eos_ring_node));
-       pkts = (void *)round_up_to_page(end_of_rings);
+       end_of_rings = (char *)output_ring->ring + EOS_RING_SIZE * sizeof(struct eos_ring_node);
+       pkts = (char *)round_up_to_page(end_of_rings);
 
        for(i=0; i<EOS_RING_SIZE; i++) {
               output_ring->ring[i].state = PKT_EMPTY;

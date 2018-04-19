@@ -23,16 +23,6 @@ struct click_init {
 	int nf_id;
 };
 
-struct click_info {
-	struct cos_compinfo shm_cinfo;
-	thdcap_t initthd;
-};
-
-struct chld_click_info {
-	struct cos_defcompinfo def_cinfo;
-	struct click_info click_info;
-};
-
 int click_initialize(void *data);
 void run_driver(void);
 void run_driver_once(void);

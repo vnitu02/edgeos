@@ -47,10 +47,12 @@
 #include <stdio.h>
 #include <llprint.h>
 
+#include <eos_pkt.h>
+
 CLICK_DECLS
 
 FromRing::FromRing() :
-		_ring_ptr(DEFAULT_SHMEM_ADDR1), _count(0), _task(this) {
+		_ring_ptr((unsigned long)shmem_addr), _count(0), _task(this) {
 }
 
 FromRing::~FromRing() {
@@ -89,11 +91,19 @@ FromRing::push(int port, Packet *p)
 bool
 FromRing::run_task(Task *)
 {
-       /*Packet* p;
+       Packet *p;
+       int len, c = 0;
+       struct eos_ring *input_ring = get_input_ring((void *)_ring_ptr);
+       void *pkt = eos_pkt_recv(input_ring, &len);
 
-       p = Packet::make((unsigned char*) pbuf_p->payload, 
-                            pbuf_p->len, NULL, NULL);*/
-	return 0;
+       if (pkt != NULL){
+              p = Packet::make((unsigned char*) pkt, len, NULL, NULL);
+              output(0).push(p);
+              c++;
+       }
+
+       _task.fast_reschedule();
+	return c > 0;
 }
 
 void FromRing::add_handlers() {

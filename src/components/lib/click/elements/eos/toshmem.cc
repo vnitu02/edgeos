@@ -49,8 +49,7 @@
 CLICK_DECLS
 
 ToShmem::ToShmem() :
-		_shmem_ptr(DEFAULT_SHMEM_ADDR2), _shmem_size(DEFAULT_SHMEM_SIZE), 
-                            _count(0), _task(this) {
+		_shmem_ptr((unsigned long)shmem_addr), _count(0), _task(this) {
 }
 
 ToShmem::~ToShmem() {

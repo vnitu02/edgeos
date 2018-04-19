@@ -13,6 +13,7 @@ nfid_t this_nf_id = 0;
  * The index of the conf file to be loaded
  */
 int conf_file_idx = 0;
+vaddr_t shmem_addr;
 
 #define MAX_CONF_FILES 3
 char *conf_files[MAX_CONF_FILES];
@@ -22,7 +23,7 @@ setup_conf_files(void)
 {
        conf_files[0] = &_binary_conf_file1_start;
        conf_files[1] = &_binary_conf_file2_start;
-       conf_files[1] = &_binary_conf_file3_start;
+       conf_files[2] = &_binary_conf_file3_start;
 
        /*
        * Mark the end of the configuration file.
@@ -40,6 +41,7 @@ cos_init(void *args)
        struct click_init init_data;
 
        nf_hyp_confidx_get(&conf_file_idx);
+       nf_hyp_get_shmem_addr(&shmem_addr);
 
        /*
        * idx=-1 means that the conf file is already parsed
@@ -55,7 +57,7 @@ cos_init(void *args)
               click_initialize(&init_data);
               nf_hyp_checkpoint(init_data.nf_id);
               //run the configuration file once
-              run_driver_once();
-              nf_hyp_clean();
+              run_driver();
+              //nf_hyp_clean();
        }
 }
