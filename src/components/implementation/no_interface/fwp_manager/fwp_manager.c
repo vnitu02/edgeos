@@ -2,6 +2,7 @@
 #include <sl.h>
 
 #include "fwp_manager.h"
+#include "fwp_chain_cache.h"
 #include "eos_ring.h"
 #include "eos_mca.h"
 
@@ -315,6 +316,7 @@ fwp_allocate_chain(struct nf_chain *chain){
               mem_seg.size = FWP_MEMSEG_SIZE;
               fwp_fork(this_nf, t_seg, d_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr);
        }
+       fwp_chain_put(chain, FWP_CHAIN_CLEANED, 0);
 }
 
 static void
@@ -347,5 +349,6 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        chain = fwp_create_chain1();
        fwp_allocate_chain(chain);
 
+       fwp_chain_get(FWP_CHAIN_CLEANED, 0);
        sl_sched_loop();
 }
