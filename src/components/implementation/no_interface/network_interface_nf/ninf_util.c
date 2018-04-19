@@ -122,8 +122,7 @@ check_all_ports_link_status(uint8_t port_num, uint32_t port_mask)
 		if (print_flag == 1) break;
 
 		if (all_ports_up == 0) {
-			printf(".");
-			fflush(stdout);
+			printc(".");
 			rte_delay_ms(CHECK_INTERVAL);
 		}
 

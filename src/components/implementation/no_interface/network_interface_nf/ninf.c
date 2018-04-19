@@ -7,7 +7,10 @@
 #define RX_MBUF_DATA_SIZE 2048
 #define MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 #define N_LOOP 2
+#define MALLOC_BUMP_SZ (2*PAGE_SIZE)
 
+void *malloc_bump = NULL;
+int malloc_left_sz = 0;
 extern struct cos_pci_device devices[PCI_DEVICE_NUM];
 struct cos_compinfo *ninf_info;
 
@@ -42,6 +45,46 @@ cos_map_virt_to_phys(void *addr)
 	assert((vaddr & 0xfff) == 0);
 	ret = call_cap_op(cos_defcompinfo_curr_get()->ci.pgtbl_cap, CAPTBL_OP_INTROSPECT, (vaddr_t)vaddr, 0, 0, 0);
 	return ret & 0xfffff000;
+}
+
+static inline void *
+__cos_dpdk_page_alloc(int sz)
+{
+	void *addr;
+
+	sz = round_to_page(sz + PAGE_SIZE - 1);
+        addr = (void *)cos_page_bump_allocn(&cos_defcompinfo_curr_get()->ci, sz);
+	assert(addr);
+	return addr;
+}
+
+static inline void *
+__cos_dpdk_malloc(int sz)
+{
+	void *ret;
+
+	if (malloc_left_sz < sz) {
+		malloc_bump = __cos_dpdk_page_alloc(MALLOC_BUMP_SZ);
+		malloc_left_sz = MALLOC_BUMP_SZ;
+	}
+	ret = malloc_bump;
+	malloc_bump += sz;
+	malloc_left_sz -= sz;
+	return ret;
+}
+
+/* type 0 - page alloc; 1 - malloc */
+void *
+cos_mem_alloc(int size, int type)
+{
+	if (type && size < MALLOC_BUMP_SZ) return __cos_dpdk_malloc(size);
+	return __cos_dpdk_page_alloc(size);
+}
+
+void
+cos_dpdk_print(char *s, int len)
+{
+	cos_llprint(s, len);
 }
 
 int
@@ -138,7 +181,11 @@ cos_init(void)
 {
 	int ret;
 	/* struct rte_mbuf *mbufs_init[BURST_SIZE]; */
+	struct cos_defcompinfo *defci = cos_defcompinfo_curr_get();
+	struct cos_compinfo    *ci    = cos_compinfo_get(defci);
 
+	cos_defcompinfo_init();
+	cos_meminfo_init(&(ci->mi), BOOT_MEM_KM_BASE, COS_MEM_KERN_PA_SZ, BOOT_CAPTBL_SELF_UNTYPED_PT);
 	ninf_info = cos_compinfo_get(cos_defcompinfo_curr_get());
 	ret = dpdk_init();
 	if (ret < 0) {
