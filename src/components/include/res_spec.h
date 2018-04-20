@@ -27,6 +27,7 @@ resres_spec_w(s16_t alloc, s16_t window)
 typedef enum {
 	SCHEDP_NOOP = 0,
 	SCHEDP_PRIO,  /* fixed priority */
+	SCHEDP_PRIO_BLOCK,  /* fixed priority inactive thread*/
 	SCHEDP_RPRIO, /* priority relatively higher than current thread */
 	/* priority relatively lower (not numerically) than current thread */
 	SCHEDP_RLPRIO,

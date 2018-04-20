@@ -10,7 +10,6 @@
 
 #include "vk_types.h"
 
-#define PRINT_FN prints
 #define debug_print(str) (PRINT_FN(str __FILE__ ":" STR(__LINE__) ".\n"))
 #define BUG_DIVZERO()                                           \
 	do {                                                    \
@@ -25,8 +24,8 @@
 #define TEST_NTHDS 5
 
 extern struct cos_compinfo booter_info;
-extern thdcap_t            termthd; /* switch to this to shutdown */
-extern unsigned long       tls_test[TEST_NTHDS];
+extern thdcap_t            termthd[]; /* switch to this to shutdown */
+extern unsigned long       tls_test[][TEST_NTHDS];
 extern int                 num, den;
 extern int                 vmid;
 

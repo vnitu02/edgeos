@@ -171,6 +171,10 @@ typedef capid_t tcap_t;
  * memory).
  */
 typedef enum { CAP_SZ_16B = 0, CAP_SZ_32B, CAP_SZ_64B, CAP_SZ_ERR } cap_sz_t;
+
+/* Don't use unsigned type. We use negative values for error cases. */
+typedef int cpuid_t;
+
 /* the shift offset for the *_SZ_* values */
 #define CAP_SZ_OFF 4
 /* The allowed amap bits of each size */
@@ -247,22 +251,37 @@ enum
 	BOOT_CAPTBL_PHYSM_PTE       = 16,
 	BOOT_CAPTBL_KM_PTE          = 18,
 
-	BOOT_CAPTBL_COMP0_CT           = 20,
-	BOOT_CAPTBL_COMP0_PT           = 22,
-	BOOT_CAPTBL_COMP0_COMP         = 24,
-	BOOT_CAPTBL_SINV_CAP           = 28,
-       BOOT_CAPTBL_HYP_SINV_CAP       = 32,
-       BOOT_CAPTBL_NEXT_SINV_CAP      = 36,
-	BOOT_CAPTBL_SELF_INITTHD_BASE  = 40,
-	BOOT_CAPTBL_SELF_INITTCAP_BASE = BOOT_CAPTBL_SELF_INITTHD_BASE + NUM_CPU_COS * CAP16B_IDSZ,
-	BOOT_CAPTBL_SELF_INITRCV_BASE  = round_up_to_pow2(BOOT_CAPTBL_SELF_INITTCAP_BASE + NUM_CPU_COS * CAP16B_IDSZ,
+	BOOT_CAPTBL_SINV_CAP           = 20,
+  BOOT_CAPTBL_HYP_SINV_CAP       = 24,
+  BOOT_CAPTBL_NEXT_SINV_CAP      = 28,
+	BOOT_CAPTBL_SELF_INITHW_BASE   = 32,
+	BOOT_CAPTBL_SELF_INITTHD_BASE  = 36,
+	/*
+	 * NOTE: kernel doesn't support sharing a cache-line across cores,
+	 *       so optimize to place INIT THD/TCAP on same cache line and bump by 64B for next CPU
+	 */
+	BOOT_CAPTBL_SELF_INITRCV_BASE  = round_up_to_pow2(BOOT_CAPTBL_SELF_INITTHD_BASE + NUM_CPU * CAP64B_IDSZ,
                                                          CAPMAX_ENTRY_SZ),
-	BOOT_CAPTBL_SELF_INITHW_BASE   = round_up_to_pow2(BOOT_CAPTBL_SELF_INITRCV_BASE + NUM_CPU_COS * CAP64B_IDSZ,
-                                                        CAPMAX_ENTRY_SZ),
-	BOOT_CAPTBL_LAST_CAP           = BOOT_CAPTBL_SELF_INITHW_BASE + CAP32B_IDSZ,
+	BOOT_CAPTBL_LAST_CAP           = BOOT_CAPTBL_SELF_INITRCV_BASE + NUM_CPU * CAP64B_IDSZ,
 	/* round up to next entry */
 	BOOT_CAPTBL_FREE = round_up_to_pow2(BOOT_CAPTBL_LAST_CAP, CAPMAX_ENTRY_SZ)
 };
+
+#define BOOT_CAPTBL_SELF_INITTCAP_BASE (BOOT_CAPTBL_SELF_INITTHD_BASE + CAP16B_IDSZ)
+#define BOOT_CAPTBL_SELF_INITTHD_CPU_BASE (BOOT_CAPTBL_SELF_INITTHD_BASE_CPU(cos_cpuid()))
+#define BOOT_CAPTBL_SELF_INITTCAP_CPU_BASE (BOOT_CAPTBL_SELF_INITTCAP_BASE_CPU(cos_cpuid()))
+#define BOOT_CAPTBL_SELF_INITRCV_CPU_BASE (BOOT_CAPTBL_SELF_INITRCV_BASE_CPU(cos_cpuid()))
+
+#define BOOT_CAPTBL_SELF_INITTHD_BASE_CPU(cpuid) (BOOT_CAPTBL_SELF_INITTHD_BASE + cpuid * CAP64B_IDSZ)
+#define BOOT_CAPTBL_SELF_INITTCAP_BASE_CPU(cpuid) (BOOT_CAPTBL_SELF_INITTHD_BASE_CPU(cpuid) + CAP16B_IDSZ)
+#define BOOT_CAPTBL_SELF_INITRCV_BASE_CPU(cpuid) (BOOT_CAPTBL_SELF_INITRCV_BASE + cpuid * CAP64B_IDSZ)
+
+/*
+ * The half of the first page of init captbl is devoted to root node. So, the
+ * first page of captbl can contain 128 caps, and every extra page can hold 256
+ * caps.
+ */
+#define BOOT_CAPTBL_NPAGES ((BOOT_CAPTBL_FREE + CAPTBL_EXPAND_SZ + CAPTBL_EXPAND_SZ * 2 - 1) / (CAPTBL_EXPAND_SZ * 2))
 
 enum
 {
@@ -281,8 +300,6 @@ enum
 	/* tcap budget */
 	TCAP_GET_BUDGET,
 };
-
-typedef int cpuid_t; /* Don't use unsigned type. We use negative values for error cases. */
 
 /* Macro used to define per core variables */
 #define PERCPU(type, name)       \
@@ -461,6 +478,6 @@ typedef unsigned int isolation_level_t;
 #define MEMMGR_MAX_SHMEM_REGIONS 1024
 #define CAPMGR_AEPKEYS_MAX       (1<<15)
 
-typedef unsigned short int cos_aepkey_t; /* 0 == PRIVATE KEY. >= 1 GLOBAL KEY NAMESPACE */
+typedef unsigned short int cos_channelkey_t; /* 0 == PRIVATE KEY. >= 1 GLOBAL KEY NAMESPACE */
 
 #endif /* TYPES_H */

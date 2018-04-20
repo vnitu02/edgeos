@@ -11,6 +11,10 @@ MUSLBIN=$(MUSLDIR)/bin
 MUSLCC=$(MUSLBIN)/musl-$(CC)
 MUSLINC=-isystem$(MUSLDIR)/include
 
+CKDIR=$(LIBDIR)/ck
+CKLIBDIR=$(CKDIR)/lib
+CKINCDIR=$(CKDIR)/include
+
 LIBCXXDIR=$(LIBDIR)/libcxx
 LIBSTDCXXOBJ=$(LIBCXXDIR)/libstdc++.a
 LIBSUPCXXOBJ=$(LIBCXXDIR)/libsupc++.a
@@ -38,7 +42,7 @@ LUAINC=-I$(LUADIR)/src -I$(LUABASE)/cos/include
 DPDKDIR=$(CDIR)/lib/dpdk
 DPDKINC=-I$(DPDKDIR)/build/include
 
-INC_PATH=-I./ -I$(CDIR)/include/ -I$(CDIR)/interface/ -I$(SHAREDINC)
+INC_PATH=-I./ -I$(CDIR)/include/ -I$(CDIR)/interface/ -I$(SHAREDINC) -I$(CKINCDIR)
 SHARED_FLAGS=-fno-merge-constants -nostdinc -nostdlib -fno-pic
 #OPT= -g
 OPT= -O3
@@ -52,6 +56,6 @@ SERVER_STUB=s_stub.o
 CLIENT_STUB=c_stub.o
 
 LIBCOSDEFKERN=-lcos_kernel_api -lcos_defkernel_api
-LIBSLCORE=$(LIBCOSDEFKERN) -lsl_sched -lheap
+LIBSLCORE=$(LIBCOSDEFKERN) -lsl_sched -lheap -lsl_xcpu -lsl_child -lck
 LIBSLCAPMGR=$(LIBSLCORE) -lsl_capmgr
 LIBSLRAW=$(LIBSLCORE) -lsl_raw
