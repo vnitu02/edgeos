@@ -17,6 +17,10 @@ __attribute__((weak)) char _binary_conf_file2_start = 0;
 __attribute__((weak)) char _binary_conf_file2_end = 0;
 __attribute__((weak)) char _binary_conf_file3_start = 0;
 __attribute__((weak)) char _binary_conf_file3_end = 0;
+__attribute__((weak)) char _binary_conf_file4_start = 0;
+__attribute__((weak)) char _binary_conf_file4_end = 0;
+__attribute__((weak)) char _binary_conf_file5_start = 0;
+__attribute__((weak)) char _binary_conf_file5_end = 0;
 
 struct click_init {
 	char *conf_str;

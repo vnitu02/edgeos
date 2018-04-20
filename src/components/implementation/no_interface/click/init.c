@@ -14,9 +14,22 @@ nfid_t this_nf_id = 0;
  */
 int conf_file_idx = 0;
 vaddr_t shmem_addr;
+int packet_ptr;
+int packet_length;
 
-#define MAX_CONF_FILES 3
+#define MAX_CONF_FILES 5
 char *conf_files[MAX_CONF_FILES];
+
+int
+click_shmem(int packet_p, int packet_l)
+{
+       /*FIXME an ugly hack to pass a packet to the click code*/
+       packet_ptr = packet_p;
+       packet_length = packet_l;
+       run_driver_once();
+       packet_ptr = NULL;
+       packet_length = 0;
+}
 
 static void 
 setup_conf_files(void)
@@ -24,6 +37,8 @@ setup_conf_files(void)
        conf_files[0] = &_binary_conf_file1_start;
        conf_files[1] = &_binary_conf_file2_start;
        conf_files[2] = &_binary_conf_file3_start;
+       conf_files[3] = &_binary_conf_file4_start;
+       conf_files[4] = &_binary_conf_file5_start;
 
        /*
        * Mark the end of the configuration file.
@@ -33,6 +48,8 @@ setup_conf_files(void)
        *(char *)(&_binary_conf_file1_end - 1) = '\0';
        *(char *)(&_binary_conf_file2_end - 1) = '\0';
        *(char *)(&_binary_conf_file3_end - 1) = '\0';
+       *(char *)(&_binary_conf_file4_end - 1) = '\0';
+       *(char *)(&_binary_conf_file5_end - 1) = '\0';
 }
 
 void 
