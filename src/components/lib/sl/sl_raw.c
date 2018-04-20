@@ -263,6 +263,16 @@ sl_thd_comp_init(struct cos_defcompinfo *comp, int is_sched)
 }
 
 struct sl_thd *
+sl_thd_initaep_alloc_no_cs(struct cos_defcompinfo *comp, struct sl_thd *sched_thd, int is_sched, int own_tcap, cos_channelkey_t key)
+{
+	struct sl_thd *t = NULL;
+	if (!is_sched) t = sl_thd_alloc_ext_no_cs(comp, 0);
+	else           t = sl_thd_aep_alloc_ext_no_cs(comp, sched_thd, 0, (is_sched ? SL_THD_PROPERTY_SEND : 0)
+						      | (own_tcap ? SL_THD_PROPERTY_OWN_TCAP : 0), key, NULL);
+	return t;
+}
+
+struct sl_thd *
 sl_thd_initaep_alloc(struct cos_defcompinfo *comp, struct sl_thd *sched_thd, int is_sched, int own_tcap, cos_channelkey_t key)
 {
 	struct sl_thd *t = NULL;
@@ -270,9 +280,7 @@ sl_thd_initaep_alloc(struct cos_defcompinfo *comp, struct sl_thd *sched_thd, int
 	if (!comp) return NULL;
 
 	sl_cs_enter();
-	if (!is_sched) t = sl_thd_alloc_ext_no_cs(comp, 0);
-	else           t = sl_thd_aep_alloc_ext_no_cs(comp, sched_thd, 0, (is_sched ? SL_THD_PROPERTY_SEND : 0)
-						      | (own_tcap ? SL_THD_PROPERTY_OWN_TCAP : 0), key, NULL);
+	t = sl_thd_initaep_alloc_no_cs(comp, sched_thd, is_sched, own_tcap, key);
 	sl_cs_exit();
 
 	return t;
