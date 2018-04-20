@@ -47,6 +47,11 @@
 #include <stdio.h>
 #include <llprint.h>
 
+extern "C"{
+       extern int packet_ptr;
+       extern int packet_length;
+}
+
 CLICK_DECLS
 
 FromShmem::FromShmem() :
@@ -76,7 +81,12 @@ void FromShmem::push(int port, Packet *p) {
 }
 
 bool FromShmem::run_task(Task *) {
-       output(0).push((Packet *)_shmem_ptr);
+       Packet *p;
+
+       assert(packet_ptr);
+       assert(packet_length);
+       p = Packet::make((unsigned char*)packet_ptr, packet_length, NULL, NULL);
+       output(0).push(p);
 	_task.fast_reschedule();
        return 0;
 }
