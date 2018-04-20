@@ -50,6 +50,8 @@ distclean:
 	make -C posix clean
 	make -C libcxx clean
 	make -C ck uninstall
+	make -C click clean
+	# make -C dpdk clean
 
 musl:
 	cd musl-1.1.11; ./configure "CFLAGS=-m32 -O3" "LDFLAGS=-Wl,-melf_i386" --disable-shared --target=i386; cd ..
@@ -59,7 +61,6 @@ musl:
 ps:
 	cd ps; ./configure cos x86; cd ..; make -C ps config ; make -C ps all
 
-
 ck:
 	make -C ck all
 	make -C ck install
@@ -68,3 +69,5 @@ init: clean distclean musl ck ps all
 # keep the following commands in one line. Same as above.
 	make -C posix
 	make -C libcxx
+	make -C click
+	cd dpdk && make config T=i686-native-cosapp-gcc && make V=y && cp build/lib/* ../ #&& cp -av build/include/rte_eal.h ../../include/rte_eal.h && cp -av build/include/rte_ring.h ../../include/rte_ring.h

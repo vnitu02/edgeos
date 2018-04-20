@@ -4,7 +4,7 @@ IMPLDIR=$(CDIR)/implementation/
 INTERDIR=$(CDIR)/interface/
 LIBDIR=$(CDIR)/lib/
 MANDITORY_LIB=cos_manditory.o
-CINC=-I./ -I$(CDIR)/include/ -I$(SHAREDINC) -I$(CDIR)/lib/ck/include -I$(CDIR)/lib/ps/ -I$(CDIR)/lib/libcxx/include
+CINC=-I./ -I$(CDIR)/include/ -I$(SHAREDINC) -I$(CDIR)/lib/ck/include -I$(CDIR)/lib/ps/ -I$(CDIR)/lib/libcxx/include -I$(CDIR)/lib/click -I$(CDIR)/lib/click/include
 
 MUSLDIR=$(CDIR)/lib/musl-1.1.11
 MUSLBIN=$(MUSLDIR)/bin
@@ -29,6 +29,7 @@ CCVOBJ=$(CCVDIR)/cos_libccv.a
 CCVINC=-I$(CCVDIR)
 
 POSIX_LIB=$(CDIR)/lib/posix/posix.o
+POSIX_HYPERCALL_LIB=$(CDIR)/lib/posix/posix_hypercall.o
 
 #PONY=$(CDIR)/cidl/
 PONY=/bin/echo
@@ -38,11 +39,14 @@ LUADIR=$(LUABASE)/lua-5.2.1
 LUAOBJ=$(LUABASE)/cos/lua_lang.o
 LUAINC=-I$(LUADIR)/src -I$(LUABASE)/cos/include
 
+DPDKDIR=$(CDIR)/lib/dpdk
+DPDKINC=-I$(DPDKDIR)/build/include
+
 INC_PATH=-I./ -I$(CDIR)/include/ -I$(CDIR)/interface/ -I$(SHAREDINC) -I$(CKINCDIR)
 SHARED_FLAGS=-fno-merge-constants -nostdinc -nostdlib -fno-pic
-OPT= -g
-#OPT= -O3
-CFLAGS=-m32 -D__x86__ -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -fno-stack-protector -fno-omit-frame-pointer -Wno-unused-variable -fvar-tracking $(INC_PATH) $(MUSLINC) $(LWIPINC) $(LUAINC) $(OPT) $(SHARED_FLAGS)
+#OPT= -g
+OPT= -O3
+CFLAGS=-m32 -D__x86__ -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -fno-stack-protector -fno-omit-frame-pointer -Wno-unused-variable -fvar-tracking $(INC_PATH) $(MUSLINC) $(LWIPINC) $(LUAINC) $(DPDKINC) $(OPT) $(SHARED_FLAGS)
 CXXFLAGS=-fno-exceptions -fno-threadsafe-statics -Wno-write-strings $(CFLAGS)
 LDFLAGS=-melf_i386
 MUSLCFLAGS=$(CFLAGS) -lc -lgcc -Xlinker -r

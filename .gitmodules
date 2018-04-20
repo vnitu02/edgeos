@@ -4,3 +4,8 @@
 [submodule "src/components/lib/ck/ck"]
 	path = src/components/lib/ck/ck
 	url = https://github.com/gwsystems/ck.git
+[submodule "src/components/lib/dpdk"]
+	path = src/components/lib/dpdk
+	url = https://github.com/gwsystems/dpdk
+	branch = composite
+

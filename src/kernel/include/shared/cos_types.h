@@ -252,8 +252,10 @@ enum
 	BOOT_CAPTBL_KM_PTE          = 18,
 
 	BOOT_CAPTBL_SINV_CAP           = 20,
-	BOOT_CAPTBL_SELF_INITHW_BASE   = 24,
-	BOOT_CAPTBL_SELF_INITTHD_BASE  = 28,
+  BOOT_CAPTBL_HYP_SINV_CAP       = 24,
+  BOOT_CAPTBL_NEXT_SINV_CAP      = 28,
+	BOOT_CAPTBL_SELF_INITHW_BASE   = 32,
+	BOOT_CAPTBL_SELF_INITTHD_BASE  = 36,
 	/*
 	 * NOTE: kernel doesn't support sharing a cache-line across cores,
 	 *       so optimize to place INIT THD/TCAP on same cache line and bump by 64B for next CPU
@@ -345,7 +347,7 @@ typedef unsigned int  page_index_t;
 typedef unsigned short int spdid_t;
 typedef unsigned short int compid_t;
 typedef unsigned short int thdid_t;
-typedef spdid_t            invtoken_t;
+typedef unsigned long      invtoken_t;
 typedef int                thdclosure_index_t;
 
 struct restartable_atomic_sequence {

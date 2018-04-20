@@ -102,3 +102,4 @@
 #define ENABLE_SERIAL
 
 #endif /* COS_CONFIG_H */
+

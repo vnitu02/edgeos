@@ -235,3 +235,4 @@ keyboard_handler(struct pt_regs *regs)
 	scancode = inb(KEY_DEVICE);
 	printk("Keyboard press: %d\n", scancode);
 }
+

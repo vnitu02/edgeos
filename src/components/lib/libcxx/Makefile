@@ -1,4 +1,4 @@
-.PHONY: all clean symlinks
+.PHONY: all clean
 
 all: libsupc++.a libstdc++.a 
 
