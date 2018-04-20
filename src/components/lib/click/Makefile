@@ -1,5 +1,5 @@
 BUILDDIR := build
-INCLUDE := -I. -I./include -I../../include -I../musl-1.1.11/include -I../libcxx/include -I../libcxx/libstdc++-v3-4.8/include -I../../implementation/no_interface/fwp_manager -I../../../kernel/include/shared -I../archives/ck/include
+INCLUDE := -I. -I./include -I../../include -I../musl-1.1.11/include -I../libcxx/include -I../libcxx/libstdc++-v3-4.8/include -I../../implementation/no_interface/fwp_manager -I../../../kernel/include/shared -I../ck/ck/include -I../ps
 CXXFLAGS = $(INCLUDE) -O3 -fno-exceptions
 OBJ_CC = $(CLICK_ALL)
 
