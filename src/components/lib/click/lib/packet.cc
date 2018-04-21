@@ -596,7 +596,8 @@ Packet::make(unsigned char *data, uint32_t length,
 # if HAVE_CLICK_PACKET_POOL
     WritablePacket *p = WritablePacket::pool_allocate(false);
 # else
-    WritablePacket *p = new WritablePacket;
+    WritablePacket *p = (WritablePacket *)click_pkt_alloc();
+    if (!p) p = new WritablePacket;
 # endif
     if (p) {
 	p->initialize();

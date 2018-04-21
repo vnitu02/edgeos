@@ -59,7 +59,7 @@ InfiniteSource::configure(Vector<String> &conf, ErrorHandler *errh)
     counter_t limit = -1;
     int burstsize = 1;
     int datasize = -1;
-    bool active = true, stop = false, timestamp = true;
+    bool active = true, stop = false, timestamp = false;
     HandlerCall end_h;
 
     if (Args(conf, this, errh)

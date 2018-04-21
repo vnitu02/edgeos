@@ -16,7 +16,7 @@
 # include <click/simclick.h>
 #endif
 #if (CLICK_USERLEVEL || CLICK_NS || CLICK_MINIOS || CLICK_COS) && (!HAVE_MULTITHREAD || HAVE___THREAD_STORAGE_CLASS)
-# define HAVE_CLICK_PACKET_POOL 1
+# define HAVE_CLICK_PACKET_POOL 0
 #endif
 #ifndef CLICK_PACKET_DEPRECATED_ENUM
 # define CLICK_PACKET_DEPRECATED_ENUM CLICK_DEPRECATED_ENUM
@@ -31,6 +31,11 @@ CLICK_DECLS
 
 class IP6Address;
 class WritablePacket;
+
+extern "C"{
+	extern void *click_pkt_alloc();
+	extern void click_pkt_free(void *packet);
+}
 
 class Packet { public:
 
@@ -1420,7 +1425,8 @@ Packet::kill()
 	WritablePacket::recycle(static_cast<WritablePacket *>(this));
 #else
     if (_use_count.dec_and_test())
-	delete this;
+	    click_pkt_free(this);
+	// delete this;
 #endif
 }
 
