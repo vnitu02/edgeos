@@ -123,12 +123,14 @@ bool
 InfiniteSource::run_task(Task *)
 {
     struct eos_ring *in_ring = get_input_ring(shmem_addr);
+    struct eos_ring *ou_ring = get_output_ring((void *)shmem_addr);
     if (!_active || !_nonfull_signal)
 	return false;
     int n = _burstsize;
     /*if (_limit >= 0 && _count + n >= (ucounter_t) _limit)
 	n = (_count > (ucounter_t) _limit ? 0 : _limit - _count);*/
     for (int i = 0; i < n; i++) {
+       eos_pkt_collect(in_ring, ou_ring);
        void* pkt = eos_pkt_allocate(in_ring, _data.length());
        // printc("dbg inif pkt %p\n", pkt);
        if (!pkt) continue;

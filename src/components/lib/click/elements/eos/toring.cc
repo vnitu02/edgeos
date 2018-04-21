@@ -91,11 +91,9 @@ ToRing::cleanup(CleanupStage stage)
 void
 ToRing::push(int port, Packet *p)
 {
-       struct eos_ring *input_ring = get_input_ring((void *)_ring_ptr);
        struct eos_ring *output_ring = get_output_ring((void *)_ring_ptr);
 
        eos_pkt_send(output_ring, (void *)p->data(), p->length());
-       eos_pkt_collect(input_ring, output_ring);
        p->kill();
 }
 

@@ -93,9 +93,12 @@ FromRing::run_task(Task *)
 {
        Packet *p;
        int len, c = 0;
+       void *pkt;
        struct eos_ring *input_ring = get_input_ring((void *)_ring_ptr);
-       void *pkt = eos_pkt_recv(input_ring, &len);
+       struct eos_ring *ouput_ring = get_output_ring((void *)_ring_ptr);
 
+       eos_pkt_collect(input_ring, ouput_ring);
+       pkt = eos_pkt_recv(input_ring, &len);
        if (pkt != NULL){
               p = Packet::make((unsigned char*) pkt, len, NULL, NULL);
               output(0).push(p);
