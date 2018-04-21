@@ -130,6 +130,7 @@ InfiniteSource::run_task(Task *)
 	n = (_count > (ucounter_t) _limit ? 0 : _limit - _count);*/
     for (int i = 0; i < n; i++) {
        void* pkt = eos_pkt_allocate(in_ring, _data.length());
+       // printc("dbg inif pkt %p\n", pkt);
        if (!pkt) continue;
        memcpy(pkt, _data.data(), _data.length());
        Packet *p = Packet::make((unsigned char*) pkt, _data.length(), NULL, NULL);

@@ -369,11 +369,12 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 
        fwp_init();
 
+       /* chain = fwp_create_chain1(); */
        chain = fwp_create_chain2(2, 0, 0, 3, 4);
        fwp_allocate_chain(chain);
        fwp_allocate_shmem_sinv(cos_compinfo_get(&chld_infos[2].def_cinfo),
                                    cos_compinfo_get(&chld_infos[3].def_cinfo)->comp_cap);
-
+       
        fwp_chain_get(FWP_CHAIN_CLEANED, 0);
        cos_thd_switch(sl_thd_thdcap(chld_infos[2].initaep));
        //sl_sched_loop();

@@ -59,7 +59,8 @@ mca_process(struct mca_conn *conn)
 	assert(sn->pkt_len);
 	fh  = cos_faa(&(dst->free_head), 1);
 	rn  = GET_RING_NODE(dst, fh & EOS_RING_MASK);
-       if (rn->state != PKT_FREE) return;
+	if (rn->state != PKT_FREE) return;
+	/* printc("dbg 1 mca stat %d free %d\n", rn->state, PKT_FREE); */
 	assert(rn->pkt);
 	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;
@@ -122,7 +123,7 @@ mca_init(struct cos_compinfo *parent_cinfo)
 
 	lh = NULL;
 	total_conn_sz = sizeof(struct mca_conn) * MCA_CONN_MAX_NUM;
-       fl = (struct mca_conn *)cos_page_bump_allocn(parent_cinfo, total_conn_sz);
+	fl = (struct mca_conn *)cos_page_bump_allocn(parent_cinfo, total_conn_sz);
 	assert(fl);
 	memset(fl, 0, total_conn_sz);
 	for(i=0; i<MCA_CONN_MAX_NUM-1; i++) {
