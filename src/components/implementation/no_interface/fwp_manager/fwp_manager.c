@@ -21,6 +21,7 @@ struct mem_seg *t_seg;
 struct mem_seg *d_seg;
 unsigned long cinfo_offset;
 vaddr_t s_addr;
+vaddr_t shmem_inv_addr;
 
 static void
 _alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
@@ -87,6 +88,7 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
                             BOOT_CAPTBL_FREE, parent_cinfo_l);
 
        size = heap_ptr - start_addr;
+       printc("size: %p - %p\n", heap_ptr, start_addr);
        if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
        for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
               cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
@@ -246,17 +248,31 @@ fwp_allocate_shmem(vaddr_t start_addr)
 
        /*FIXME An ugly hack*/
        /*
-       * We assume that the binary loaded by the llbooter goes in an PGD(4MB)
-       * amd we load the SHMEM after this PGD
+       * We assume that the binary mapped by the llbooter goes in an PGD(4MB)
+       * amd we map the SHMEM after this PGD
        */
        next_pgd = round_up_to_pgd_page(start_addr + 1);
-       map_shmem_at = (cos_get_heap_ptr() > next_pgd) ? cos_get_heap_ptr() : next_pgd;
+       map_shmem_at = ((vaddr_t)cos_get_heap_ptr() > next_pgd) ? (vaddr_t)cos_get_heap_ptr() : next_pgd;
        empty_page = (vaddr_t)cos_page_bump_alloc(boot_cinfo);
        while (addr < map_shmem_at)
               addr = cos_mem_alias(boot_cinfo, boot_cinfo, empty_page);
 
        shmem_addr = (vaddr_t)cos_page_bump_allocn(boot_cinfo, FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
        printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
+}
+
+void
+fwp_allocate_shmem_sinv(struct cos_compinfo *src_comp, compcap_t dest_compcap)
+{
+       struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
+       sinvcap_t next_call_sinvcap;
+       int ret;
+
+       /*allocate the sinv capability for next_call*/
+       next_call_sinvcap = cos_sinv_alloc(boot_cinfo, dest_compcap, shmem_inv_addr, 0);
+       assert(next_call_sinvcap > 0);
+       ret = cos_cap_cpy_at(src_comp, BOOT_CAPTBL_NEXT_SINV_CAP,  boot_cinfo, next_call_sinvcap);
+       assert(ret == 0);
 }
 
 /*
@@ -285,21 +301,30 @@ fwp_create_chain1(void){
        /*TODO should be closed*/
        conn = mca_conn_create(out1, in2);
 
-       /*chld_infos[next_nfid-1].next = &chld_infos[next_nfid];
-       fwp_fork(&chld_infos[next_nfid], text_seg, data_seg, &mem2, 2, comp_info_offset, start_addr);
-       next_nfid++;*/
-
-       /*allocate the sinv capability for next_call*/
-       /*next_call_sinvcap = cos_sinv_alloc(boot_cinfo,
-                            cos_compinfo_get(&chld_infos[next_nfid-1].def_cinfo)->comp_cap,
-                            sinv_next_call, 0);
-       assert(next_call_sinvcap > 0);
-       ret = cos_cap_cpy_at(
-                     cos_compinfo_get(&chld_infos[next_nfid-2].def_cinfo),
-                     BOOT_CAPTBL_NEXT_SINV_CAP, boot_cinfo, next_call_sinvcap);
-       assert(ret == 0);*/
-
        return &chains[0];
+}
+
+/*
+ * create a chain of two NFs linked by shmem
+ */
+static struct nf_chain *
+fwp_create_chain2(int nfid, int chain_idx, int shmem_idx, int conf_file1, int conf_file2)
+{
+       struct eos_ring *out1, *in2;
+       struct mca_conn *conn;
+       struct click_info *nf1 = &chld_infos[nfid];
+       struct click_info *nf2 = &chld_infos[nfid+1];
+
+       chains[chain_idx].first_nf = nf1;
+       nf1->next = nf2;
+
+       nf1->shmem_addr = (vaddr_t)fwp_get_shmem(shmem_idx);
+       nf2->shmem_addr = (vaddr_t)fwp_get_shmem(shmem_idx);
+
+       nf1->conf_file_idx = conf_file1;
+       nf2->conf_file_idx = conf_file2;
+
+       return &chains[chain_idx];
 }
 
 /*
@@ -334,21 +359,22 @@ void
 fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
               unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
-       vaddr_t dest;
-       int ret;
-       sinvcap_t next_call_sinvcap;
        struct nf_chain *chain;
 
        t_seg = text_seg;
        d_seg = data_seg;
        cinfo_offset = comp_info_offset;
        s_addr = start_addr;
+       shmem_inv_addr = sinv_next_call;
 
        fwp_init();
 
-       chain = fwp_create_chain1();
+       chain = fwp_create_chain2(2, 0, 0, 3, 4);
        fwp_allocate_chain(chain);
+       fwp_allocate_shmem_sinv(cos_compinfo_get(&chld_infos[2].def_cinfo),
+                                   cos_compinfo_get(&chld_infos[3].def_cinfo)->comp_cap);
 
        fwp_chain_get(FWP_CHAIN_CLEANED, 0);
-       sl_sched_loop();
+       cos_thd_switch(sl_thd_thdcap(chld_infos[2].initaep));
+       //sl_sched_loop();
 }

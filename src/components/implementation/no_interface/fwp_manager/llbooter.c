@@ -134,7 +134,7 @@ boot_spd_symbs(struct cobj_header *h, spdid_t spdid, vaddr_t *comp_info, vaddr_t
 			*comp_info = symb->vaddr;
 			break;
 		case COBJ_SYMB_EXPORTED:
-                     if (!strcmp(symb->name, "run_driver_once_inv"))
+                     if (!strcmp(symb->name, "click_shmem_inv"))
                             *sinv_next_call = symb->vaddr;
 			break;
 		case COBJ_SYMB_COMP_PLT:

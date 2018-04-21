@@ -9,10 +9,10 @@
 /*
  *  * sinv to another click component
  *   */
-static inline void
-next_call_sinv(void)
+static int
+next_call_sinv(int packet_addr, int packet_length)
 {
-       cos_sinv(BOOT_CAPTBL_NEXT_SINV_CAP, 0, 0, 0, 0);
+       cos_sinv(BOOT_CAPTBL_NEXT_SINV_CAP, 0, packet_addr, packet_length, 0);
 }
 
 #endif /*EOS_INIT_H*/
