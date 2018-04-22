@@ -4,7 +4,7 @@
 #include <sl.h>
 #include <bitmap.h>
 
-#define SL_REQ_THD_ALLOC(req, fn, data) do {						\
+#define SL_REQ_THD_ALLOC(req, fn, data) do {							\
 						req.sl_xcpu_req_thd_alloc.fn = fn;		\
 						req.sl_xcpu_req_thd_alloc.data = data;		\
 					     } while (0)
@@ -27,9 +27,9 @@
 						req.sl_xcpu_req_thd_wakeup.tid = tid; \
 					     } while (0)
 
-#define SL_REQ_TYPE(req, cpu, type) do {						\
+#define SL_REQ_TYPE(req, type) do {						\
 						req->type = type;			\
-						req->client = cpu;				\
+						req->client = cos_cpuid();				\
 						req->req_response = 0;				\
 					     } while (0)
 
@@ -40,7 +40,7 @@ static inline int
 __sl_xcpu_req_exit(struct sl_xcpu_request *req, cpuid_t cpu, sl_xcpu_req_t type)
 {
 	int ret = 0;
-	SL_REQ_TYPE(req, cpu, type);
+	SL_REQ_TYPE(req, type);
 	if (ck_ring_enqueue_mpsc_xcpu(sl__ring(cpu), sl__ring_buffer(cpu), req) != true) {
 		ret = -ENOMEM;
 	}
@@ -56,7 +56,7 @@ sl_xcpu_thd_alloc(cpuid_t cpu, cos_thd_fn_t fn, void *data, sched_param_t params
 	asndcap_t snd = 0;
 	struct sl_xcpu_request req;
 
-	if (cpu != cos_cpuid()) return -EINVAL;
+	if (cpu == cos_cpuid()) return -EINVAL;
 	if (!bitmap_check(sl__globals()->cpu_bmp, cpu)) return -EINVAL;
 
 	sl_cs_enter();
@@ -90,7 +90,7 @@ sl_xcpu_initaep_alloc(cpuid_t cpu, struct cos_defcompinfo *dci, struct sl_thd *s
 {
 	struct sl_xcpu_request req;
 
-	if (cpu != cos_cpuid()) return -EINVAL;
+	if (cpu == cos_cpuid()) return -EINVAL;
 	if (!bitmap_check(sl__globals()->cpu_bmp, cpu)) return -EINVAL;
 
 	sl_cs_enter();
@@ -110,7 +110,7 @@ sl_xcpu_thd_param_set(cpuid_t cpu, struct sl_thd **arg_thd, sched_param_t sp)
 {
 	struct sl_xcpu_request req;
 
-	if (cpu != cos_cpuid()) return -EINVAL;
+	if (cpu == cos_cpuid()) return -EINVAL;
 	if (!bitmap_check(sl__globals()->cpu_bmp, cpu)) return -EINVAL;
 
 	sl_cs_enter();
@@ -124,7 +124,7 @@ sl_xcpu_thd_wakeup(cpuid_t cpu, thdid_t tid)
 {
 	struct sl_xcpu_request req;
 
-	if (cpu != cos_cpuid()) return -EINVAL;
+	if (cpu == cos_cpuid()) return -EINVAL;
 	if (!bitmap_check(sl__globals()->cpu_bmp, cpu)) return -EINVAL;
 
 	sl_cs_enter();
@@ -182,7 +182,7 @@ sl_xcpu_process_no_cs(void)
 		{
 			t = sl_thd_lkup(req.sl_xcpu_req_thd_wakeup.tid);
 			assert(t);
-			sl_thd_wakeup_no_cs(t);
+			sl_thd_sched_wakeup_no_cs(t);
 			break;
 		}
 		case SL_XCPU_THD_ALLOC_EXT:
