@@ -4,8 +4,8 @@
 #include "ninf.h"
 #include "ninf_util.h"
 
-#define RX_MBUF_DATA_SIZE 0
-#define TX_MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
+#define TX_MBUF_DATA_SIZE 0
+#define TX_MBUF_SIZE (TX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 #define NINF_TX_BATCH 10
 
 struct tx_ring {
@@ -19,13 +19,12 @@ struct tx_pkt_batch {
 	void *phy_addr; 	/* physical address of pkt in this ring node */
 };
 
-extern struct rte_mempool *mbuf_pool;
 static struct tx_ring *tx, *tx_fl;
 static struct tx_ring tx_rings[EOS_MAX_CHAIN_NUM];
 static int batch_cnt, burst_cnt[NUM_NIC_PORTS];
 static struct tx_pkt_batch send_batch[NUM_NIC_PORTS][BURST_SIZE];
-/* static struct rte_mempool *tx_mbuf_pool; */
-static struct rte_mbuf *rx_batch_mbufs[BURST_SIZE];
+static struct rte_mempool *tx_mbuf_pool;
+static struct rte_mbuf *tx_batch_mbufs[BURST_SIZE];
 
 static inline void
 __ring_push(struct tx_ring **h, struct tx_ring *n)
@@ -64,7 +63,7 @@ ninf_tx_init()
 	tx = NULL;
 	batch_cnt = 0;
 	for(i=0; i<NUM_NIC_PORTS; i++) burst_cnt[i] = 0;
-	/* tx_mbuf_pool = rte_pktmbuf_pool_create("TX_MBUF_POOL", NUM_MBUFS * 2, 0, 0, TX_MBUF_SIZE, -1); */
+	tx_mbuf_pool = rte_pktmbuf_pool_create("TX_MBUF_POOL", NUM_MBUFS * NUM_NIC_PORTS, 0, 0, TX_MBUF_SIZE, -1);
 }
 
 struct tx_ring *
@@ -93,15 +92,16 @@ ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 
 	cnt = burst_cnt[port];
 	if (!cnt) return ;
-	if (rte_pktmbuf_alloc_bulk(mbuf_pool, rx_batch_mbufs, cnt)) {
+	if (rte_pktmbuf_alloc_bulk(tx_mbuf_pool, tx_batch_mbufs, cnt)) {
 		assert(0);
 	}
 	for(i=0; i<cnt; i++) {
-		rx_batch_mbufs[i]->buf_addr     = batch[i].rn->pkt;
-		rx_batch_mbufs[i]->buf_physaddr = batch[i].phy_addr;
-		rx_batch_mbufs[i]->userdata     = batch[i].rn;
+		tx_batch_mbufs[i]->buf_addr     = batch[i].rn->pkt;
+		tx_batch_mbufs[i]->buf_physaddr = batch[i].phy_addr;
+		tx_batch_mbufs[i]->data_len     = batch[i].rn->pkt_len;
+		tx_batch_mbufs[i]->userdata     = batch[i].rn;
 	}
-	nb_tx = rte_eth_tx_burst(port, 0, rx_batch_mbufs, cnt);
+	nb_tx = rte_eth_tx_burst(port, 0, tx_batch_mbufs, cnt);
 	assert(nb_tx == cnt);
 	burst_cnt[port] = 0;
 }

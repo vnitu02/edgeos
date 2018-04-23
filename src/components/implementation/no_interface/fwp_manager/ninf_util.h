@@ -38,6 +38,7 @@ struct ninf_ft {
         int entry_size;
 };
 
+int dpdk_init(void);
 void check_all_ports_link_status(uint8_t port_num, uint32_t port_mask);
 /* 
  * Init ports!

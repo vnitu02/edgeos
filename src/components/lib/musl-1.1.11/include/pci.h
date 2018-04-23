@@ -72,6 +72,7 @@ void cos_pci_write_config(u32_t bus, u32_t dev, u32_t func, u32_t reg, u32_t v);
 void *cos_map_virt_to_phys(void *addr);
 void *cos_mem_alloc(int size, int type);
 void cos_dpdk_print(char *s, int len);
+void cos_tx_cb(void *userdata);
 
 #endif /* PCI_H */
 

@@ -5,8 +5,10 @@
 
 #define DPDK_PKT_OFF 256
 #define DPDK_PKT2MBUF(pkt) ((struct rte_mbuf *)((void *)(pkt) - DPDK_PKT_OFF))
+#define IN2OUT_PORT(port) (!(port))
 
 struct ninf_ft ninf_ft;
+struct rte_mempool *rx_mbuf_pool;
 static struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];
 static struct rte_mbuf *rx_batch_mbufs[BURST_SIZE];
 
@@ -60,7 +62,7 @@ ninf_rx_proc_mbuf(struct rte_mbuf *mbuf, int in_port)
 
 	eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf));
 	/* FIXME: add port to ring buffer; add pkt cnt to ring buffer */
-	/* eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf), !in_port); */
+	/* eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf), IN2OUT_PORT(in_port)); */
 }
 
 static inline void

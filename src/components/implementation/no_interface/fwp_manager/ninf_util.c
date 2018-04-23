@@ -2,10 +2,13 @@
 #include "ninf_util.h"
 
 #define RX_RING_SIZE    512
-#define TX_RING_SIZE    512
+#define TX_RING_SIZE    64
 #define MBUF_CACHE_SIZE 250
+#define RX_MBUF_DATA_SIZE 2048
+#define RX_MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 
 extern struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];
+extern struct rte_mempool *rx_mbuf_pool;
 
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN }
@@ -91,6 +94,32 @@ rte_eth_dev_cos_setup_ports(unsigned nb_ports,
 			return -1;
 		}
 	}
+
+	return 0;
+}
+
+int
+dpdk_init(void)
+{
+	int argc = 3, ret;
+	char arg1[] = "DEBUG", arg2[] = "-l", arg3[] = "0";
+	char *argv[] = {arg1, arg2, arg3};
+	u8_t nb_ports, i;
+
+	ret = rte_eal_init(argc, argv);
+	if (ret < 0) return ret;
+	/* printc("\nDPDK EAL init done.\n"); */
+
+	nb_ports = rte_eth_dev_count();
+	assert(nb_ports == NUM_NIC_PORTS);
+	/* printc("%d ports available.\n", nb_ports); */
+
+	rx_mbuf_pool = rte_pktmbuf_pool_create("RX_MBUF_POOL", NUM_MBUFS * nb_ports, 0, 0, RX_MBUF_SIZE, -1);
+	if (!rx_mbuf_pool) return -2;
+
+	if (rte_eth_dev_cos_setup_ports(nb_ports, rx_mbuf_pool) < 0)
+		return -2;
+	/* printc("\nPort init done.\n"); */
 
 	return 0;
 }

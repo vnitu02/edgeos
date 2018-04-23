@@ -2,15 +2,11 @@
 #include "ninf.h"
 #include "ninf_util.h"
 
-#define RX_MBUF_DATA_SIZE 2048
-#define MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 #define MALLOC_BUMP_SZ (2*PAGE_SIZE)
 
 void *malloc_bump = NULL;
 int malloc_left_sz = 0;
 extern struct cos_pci_device devices[PCI_DEVICE_NUM];
-u8_t nb_ports;
-struct rte_mempool *mbuf_pool;
 extern struct ninf_ft ninf_ft;
 
 cos_eal_thd_t
@@ -83,80 +79,28 @@ cos_dpdk_print(char *s, int len)
 	cos_llprint(s, len);
 }
 
-int
-dpdk_init(void)
+void
+cos_tx_cb(void *userdata)
 {
-	/* Dummy argc and argv */
-	int argc = 3;
+	struct eos_ring_node *n;
 
-	/* single core */
-	char arg1[] = "DEBUG", arg2[] = "-l", arg3[] = "0";
-	char *argv[] = {arg1, arg2, arg3};
-
-	int ret;
-	u8_t i;
-
-	ret = rte_eal_init(argc, argv);
-	if (ret < 0) return ret;
-	/* printc("\nDPDK EAL init done.\n"); */
-
-	nb_ports = rte_eth_dev_count();
-	assert(nb_ports == NUM_NIC_PORTS);
-	/* printc("%d ports available.\n", nb_ports); */
-
-	mbuf_pool = rte_pktmbuf_pool_create("RX_MBUF_POOL", NUM_MBUFS * nb_ports, 0, 0, MBUF_SIZE, -1);
-	if (!mbuf_pool) return -2;
-
-	if (rte_eth_dev_cos_setup_ports(nb_ports, mbuf_pool) < 0)
-		return -2;
-	/* printc("\nPort init done.\n"); */
-
-	return 0;
+	n = (struct eos_ring_node *)userdata;
+	n->state = PKT_SENT_DONE;
 }
-
-/* static void */
-/* ninf_pktgen_client(void) */
-/* { */
-/* 	struct rte_mbuf *mbufs[BURST_SIZE]; */
-/* 	u8_t port; */
-/* 	u16_t nb_rx, nb_tx; */
-
-/* 	while (1) { */
-/* 		for(port=0; port<2; port++) { */
-/* 			nb_rx = rte_eth_rx_burst(port, 0, mbufs, BURST_SIZE); */
-/* 			if (nb_rx) { */
-/* 				nb_tx = rte_eth_tx_burst(port, 0, mbufs, nb_rx); */
-/* 				assert(nb_tx != 0); */
-/* 			} */
-/* 		} */
-/* 	} */
-/* 	printc("going to SPIN\n"); */
-/* 	SPIN(); */
-/* } */
 
 void
 ninf_init(void)
 {
 	int ret;
-	/* struct rte_mbuf *mbufs_init[BURST_SIZE]; */
+
 	ret = dpdk_init();
 	if (ret < 0) {
 		printc("DPDK EAL init return error %d \n", ret);
 		goto halt;
 	}
-	if (nb_ports < 2) {
-		printc("Too few ports\n");
-		goto halt;
-	}
 
-	/* if(rte_pktmbuf_alloc_bulk_cos(mbuf_pool, mbufs_init, BURST_SIZE)) { */
-	/* 	printc("Couldn't allocate packets\n"); */
-	/* 	goto halt; */
-	/* } */
-	check_all_ports_link_status(nb_ports, 3);
+	check_all_ports_link_status(NUM_NIC_PORTS, 3);
 	ninf_ft_init(&ninf_ft, EOS_MAX_FLOW_NUM, sizeof(struct eos_ring *));
-	/* ninf_bride(); */
-	/* ninf_pktgen_client(); */
 
 halt:
 	printc("going to SPIN\n");
