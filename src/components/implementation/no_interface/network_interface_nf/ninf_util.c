@@ -2,7 +2,7 @@
 #include "ninf_util.h"
 
 #define RX_RING_SIZE    512
-#define TX_RING_SIZE    512
+#define TX_RING_SIZE    64
 #define NUM_MBUFS       8191
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE      32

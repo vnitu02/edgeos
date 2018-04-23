@@ -15,7 +15,8 @@ extern struct cos_pci_device devices[PCI_DEVICE_NUM];
 struct cos_compinfo *ninf_info;
 
 u8_t nb_ports;
-struct rte_mempool *mbuf_pool;
+struct rte_mempool *mbuf_pool, *temp_pool;
+int tx_cb_cnt = 0;
 
 cos_eal_thd_t
 cos_eal_thd_curr(void)
@@ -87,6 +88,16 @@ cos_dpdk_print(char *s, int len)
 	cos_llprint(s, len);
 }
 
+void
+cos_tx_cb(void *userdata)
+{
+	rte_pktmbuf_free((struct rte_mbuf *)userdata);
+	tx_cb_cnt++;
+	/* int t; */
+	/* t = *(int *)userdata; */
+	/* *(int *)userdata = t +1; */
+}
+
 int
 dpdk_init(void)
 {
@@ -110,6 +121,8 @@ dpdk_init(void)
 
 	mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS * nb_ports, 0, 0, MBUF_SIZE, -1);
 	if (!mbuf_pool) return -2;
+	temp_pool = rte_pktmbuf_pool_create("TEMP_POOL", NUM_MBUFS * nb_ports, 0, 0, MBUF_SIZE - RX_MBUF_DATA_SIZE, -1);
+	if (!temp_pool) return -2;
 
 	//TODO: Configure each port
 	/* for (i = 0; i < nb_ports; i++) {} */
@@ -118,6 +131,28 @@ dpdk_init(void)
 	/* printc("\nPort init done.\n"); */
 
 	return 0;
+}
+
+static inline void
+process_batch(int port, struct rte_mbuf **mbufs, int cnt)
+{
+	struct rte_mbuf *tx_mbufs[BURST_SIZE];
+	int i;
+
+	if (rte_pktmbuf_alloc_bulk(temp_pool, tx_mbufs, cnt)) {
+		assert(0);
+	}
+	/* cnt = 0; */
+	for(i=0; i<cnt; i++) {
+		tx_mbufs[i]->buf_addr     = mbufs[i]->buf_addr;
+		tx_mbufs[i]->buf_physaddr = mbufs[i]->buf_physaddr;
+		tx_mbufs[i]->data_len = mbufs[i]->data_len;
+		/* tx_mbufs[i]->userdata     = &tx_cb_cnt; */
+		/* tx_mbufs[i]->pkt_len = 64; */
+		tx_mbufs[i]->userdata     = (void *)mbufs[i];
+		/* tx_mbufs[i]->buf_len = mbufs[i]->buf_len; */
+	}
+	rte_eth_tx_burst(port, 0, tx_mbufs, cnt);
 }
 
 static void
@@ -146,9 +181,10 @@ ninf_bride(void)
 				/* printc("dbg ninf p %d pl %d dl %d\n", mbufs[0]->port, mbufs[0]->pkt_len, mbufs[0]->data_len); */
 				/* printc("Total RX: %d \n", tot_rx); */
 				/* print_ether_addr(mbufs[0]); */
-				const u16_t nb_tx = rte_eth_tx_burst(!port, 0, mbufs, nb_rx);
-				assert(nb_tx != 0);
-				tot_tx += nb_tx;
+				process_batch(!port, mbufs, nb_rx);
+				/* const u16_t nb_tx = rte_eth_tx_burst(!port, 0, mbufs, nb_rx); */
+				/* assert(nb_tx != 0); */
+				/* tot_tx += nb_tx; */
 			}
 		}
 	}
