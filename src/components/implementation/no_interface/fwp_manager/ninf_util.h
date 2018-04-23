@@ -15,7 +15,11 @@
 #include <rte_udp.h>
 #include <rte_thash.h>
 #include <rte_hash.h>
+#include "eos_utils.h"
 
+#define NUM_NIC_PORTS 2
+#define NUM_MBUFS 4096
+#define BURST_SIZE 32
 #define IP_PROTOCOL_TCP 6
 #define IP_PROTOCOL_UDP 17
 
@@ -45,7 +49,7 @@ struct ipv4_hdr *ninf_pkt_ipv4_hdr(struct rte_mbuf* pkt);
 struct tcp_hdr *ninf_pkt_tcp_hdr(struct rte_mbuf* pkt);
 struct udp_hdr *ninf_pkt_udp_hdr(struct rte_mbuf* pkt);
 uint32_t ninf_rss();
-void ninf_ft_init(struct ninf_ft *ft, int cnt, int entry_size, void *data);
+void ninf_ft_init(struct ninf_ft *ft, int cnt, int entry_size);
 int ninf_ft_add_key(struct ninf_ft* table, struct pkt_ipv4_5tuple *key, uint32_t rss, void **data);
 int ninf_ft_lookup_key(struct ninf_ft* table, struct pkt_ipv4_5tuple *key, uint32_t rss, void **data);
 

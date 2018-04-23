@@ -3,11 +3,12 @@
 #include "ninf.h"
 #include "ninf_util.h"
 
-#define BURST_SIZE 32
 #define DPDK_PKT_OFF 256
 #define DPDK_PKT2MBUF(pkt) ((struct rte_mbuf *)((void *)(pkt) - DPDK_PKT_OFF))
 
 struct ninf_ft ninf_ft;
+static struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];
+static struct rte_mbuf *rx_batch_mbufs[BURST_SIZE];
 
 static inline void
 ninf_pkt_collect(struct eos_ring *r)
@@ -74,14 +75,13 @@ ninf_rx_proc_batch(struct rte_mbuf **mbufs, int nbuf, int in_port)
 void
 ninf_rx_loop()
 {
-	struct rte_mbuf *mbufs[BURST_SIZE];
 	int tot_rx = 0, port;
 
 	while (1) {
-		for(port=0; port<2; port++) {
-			const u16_t nb_rx = rte_eth_rx_burst(port, 0, mbufs, BURST_SIZE);
+		for(port=0; port<NUM_NIC_PORTS; port++) {
+			const u16_t nb_rx = rte_eth_rx_burst(port, 0, rx_batch_mbufs, BURST_SIZE);
 			tot_rx += nb_rx;
-			if (nb_rx) ninf_rx_proc_batch(mbufs, nb_rx, port);
+			if (nb_rx) ninf_rx_proc_batch(rx_batch_mbufs, nb_rx, port);
 		}
 	}
 }

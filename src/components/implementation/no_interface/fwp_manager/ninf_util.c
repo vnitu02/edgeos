@@ -3,9 +3,9 @@
 
 #define RX_RING_SIZE    512
 #define TX_RING_SIZE    512
-#define NUM_MBUFS       8191
 #define MBUF_CACHE_SIZE 250
-#define BURST_SIZE      32
+
+extern struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];
 
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN }
@@ -230,7 +230,7 @@ ninf_softrss(struct pkt_ipv4_5tuple *key)
 }
 
 void
-ninf_ft_init(struct ninf_ft *ft, int cnt, int entry_size, void *data)
+ninf_ft_init(struct ninf_ft *ft, int cnt, int entry_size)
 {
         struct rte_hash* hash;
         struct rte_hash_parameters ipv4_hash_params = {
@@ -251,7 +251,7 @@ ninf_ft_init(struct ninf_ft *ft, int cnt, int entry_size, void *data)
         ft->hash = hash;
         ft->cnt = cnt;
         ft->entry_size = entry_size;
-        ft->data = data;
+        ft->data = (void *)ninf_ft_data;
 }
 
 int

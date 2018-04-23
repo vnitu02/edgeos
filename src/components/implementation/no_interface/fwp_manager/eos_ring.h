@@ -21,14 +21,15 @@ typedef enum {
 struct eos_ring_node {
 	pkt_states_t state;
 	void *pkt;
-	int pkt_len;
+	int pkt_len, port;
 };
 
 struct eos_ring {
 	struct eos_ring_node *ring;  /* read only */
-	char pad1[2 * CACHE_LINE - sizeof(struct eos_ring_node *)];
-	int free_head;        /* shared head */
-	char pad2[2 * CACHE_LINE - sizeof(int)];
+	void *ring_phy_addr;
+	char pad1[2 * CACHE_LINE - 2*sizeof(struct eos_ring_node *)];
+	int free_head, pkt_cnt;        /* shared head */
+	char pad2[2 * CACHE_LINE - 2*sizeof(int)];
 	int mca_head;        /* mca access only */
 	char pad3[2 * CACHE_LINE - sizeof(int)];
 	int head, tail;    /* nf access only */

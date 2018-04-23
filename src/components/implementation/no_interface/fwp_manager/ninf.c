@@ -1,13 +1,9 @@
 #include <cos_defkernel_api.h>
 #include "ninf.h"
 #include "ninf_util.h"
-#include "eos_utils.h"
 
-#define NUM_MBUFS 8192
-#define BURST_SIZE 32
 #define RX_MBUF_DATA_SIZE 2048
 #define MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
-#define N_LOOP 2
 #define MALLOC_BUMP_SZ (2*PAGE_SIZE)
 
 void *malloc_bump = NULL;
@@ -105,10 +101,10 @@ dpdk_init(void)
 	/* printc("\nDPDK EAL init done.\n"); */
 
 	nb_ports = rte_eth_dev_count();
-	if (!nb_ports) return -1;
+	assert(nb_ports == NUM_NIC_PORTS);
 	/* printc("%d ports available.\n", nb_ports); */
 
-	mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS * nb_ports, 0, 0, MBUF_SIZE, -1);
+	mbuf_pool = rte_pktmbuf_pool_create("RX_MBUF_POOL", NUM_MBUFS * nb_ports, 0, 0, MBUF_SIZE, -1);
 	if (!mbuf_pool) return -2;
 
 	if (rte_eth_dev_cos_setup_ports(nb_ports, mbuf_pool) < 0)
@@ -118,25 +114,25 @@ dpdk_init(void)
 	return 0;
 }
 
-static void
-ninf_pktgen_client(void)
-{
-	struct rte_mbuf *mbufs[BURST_SIZE];
-	u8_t port;
-	u16_t nb_rx, nb_tx;
+/* static void */
+/* ninf_pktgen_client(void) */
+/* { */
+/* 	struct rte_mbuf *mbufs[BURST_SIZE]; */
+/* 	u8_t port; */
+/* 	u16_t nb_rx, nb_tx; */
 
-	while (1) {
-		for(port=0; port<2; port++) {
-			nb_rx = rte_eth_rx_burst(port, 0, mbufs, BURST_SIZE);
-			if (nb_rx) {
-				nb_tx = rte_eth_tx_burst(port, 0, mbufs, nb_rx);
-				assert(nb_tx != 0);
-			}
-		}
-	}
-	printc("going to SPIN\n");
-	SPIN();
-}
+/* 	while (1) { */
+/* 		for(port=0; port<2; port++) { */
+/* 			nb_rx = rte_eth_rx_burst(port, 0, mbufs, BURST_SIZE); */
+/* 			if (nb_rx) { */
+/* 				nb_tx = rte_eth_tx_burst(port, 0, mbufs, nb_rx); */
+/* 				assert(nb_tx != 0); */
+/* 			} */
+/* 		} */
+/* 	} */
+/* 	printc("going to SPIN\n"); */
+/* 	SPIN(); */
+/* } */
 
 void
 ninf_init(void)
@@ -158,8 +154,7 @@ ninf_init(void)
 	/* 	goto halt; */
 	/* } */
 	check_all_ports_link_status(nb_ports, 3);
-	/* FIXME: alloc memory for flow table, set number of entries */
-	ninf_ft_init(&ninf_ft, -1, sizeof(struct eos_ring *), NULL);
+	ninf_ft_init(&ninf_ft, EOS_MAX_FLOW_NUM, sizeof(struct eos_ring *));
 	/* ninf_bride(); */
 	/* ninf_pktgen_client(); */
 

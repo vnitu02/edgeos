@@ -28,7 +28,7 @@ void ninf_init(void);
 void ninf_rx_loop(void);
 void ninf_tx_loop(void);
 void ninf_tx_init(void);
-void ninf_tx_add_ring(struct eos_ring *r);
+struct tx_ring * ninf_tx_add_ring(struct eos_ring *r);
 void ninf_tx_del_ring(struct tx_ring *r);
 
 #endif /* NINF_H */
