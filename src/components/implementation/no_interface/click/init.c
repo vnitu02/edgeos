@@ -17,6 +17,7 @@ vaddr_t shmem_addr;
 int packet_ptr;
 int packet_length;
 int packet_port;
+int global_first = 0;
 
 #define MAX_CONF_FILES 5
 char *conf_files[MAX_CONF_FILES];
@@ -25,6 +26,10 @@ int
 click_shmem(int packet_p, int packet_l, int port_l)
 {
        /*FIXME an ugly hack to pass a packet to the click code*/
+	if (!global_first) {
+		global_first = 1;
+		nf_hyp_get_shmem_addr(&shmem_addr);
+	}
        packet_ptr    = packet_p;
        packet_length = packet_l;
        packet_port   = port_l;

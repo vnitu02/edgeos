@@ -17,10 +17,9 @@ extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2
  */
 long next_nfid = 2, next_chain_id = 0, next_shmem_id = 0, next_template_id = 0;
 
-vaddr_t shmem_addr;
+vaddr_t shmem_addr, heap_ptr;
 
-struct mem_seg *t_seg;
-struct mem_seg *d_seg;
+struct mem_seg *t_seg, *d_seg;
 unsigned long cinfo_offset;
 vaddr_t s_addr, shmem_inv_addr;
 struct sl_thd  *mca_thd;
@@ -69,75 +68,98 @@ fwp_ci_get(struct cobj_header *h, vaddr_t *comp_info)
 /*
  * COS internals for creating a new component
  */
+/* 
+ * assumption and complexity of forking.
+ * 1. To make copying from template easier, we try to keep post-init data segment of a NF (data segment + dynamic allocation) 
+ * continuous in fwp_mgr's space. This requires the data segment allocation (see _alias_click) to be the last virtual memory
+ * allocation in fwp_mgr before it switches to the NF for check-pointing. 
+ * 2. The shared pkt memory complex the memory layout of a NF, which becomes when do check point:
+ * | text | data | ... shared memory ... | TLS | dynamic memory (heap) |
+ * text and shmem can be aliased, while others should be copied, which are not continuous in NF space.
+ * Thus, we need to map them into forked NF separately (see heap_sz check in _alias_click).
+ * 3. TLS page should be handled specially. As the template already includes the TLS page, we do not need to allocate 
+ * it again (see the check in _fwp_fork_cont). Mapping TLS also need expand NF's page table.
+ * 4. heap pointer of the forked NF should be updated to the post-init state.
+ * 5. Some global memory of forked NF also need to be updated properly (mainly for shared ring address).
+ */
 static void
 _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, 
-              struct mem_seg *text_seg, struct mem_seg *data_seg, 
-              struct mem_seg *ring_seg, int conf_file_idx, vaddr_t start_addr)
+	  struct mem_seg *text_seg, struct mem_seg *data_seg, 
+	  struct mem_seg *ring_seg, int conf_file_idx, vaddr_t start_addr)
 {
-       struct cos_aep_info *fork_aep = cos_sched_aep_get(&fork_info->def_cinfo);
-       struct cos_compinfo *fork_cinfo = cos_compinfo_get(&fork_info->def_cinfo);
-       pgtblcap_t ckpt;
-       captblcap_t ckct;
-       vaddr_t dest, addr, heap_ptr;
-       unsigned long size;
+	struct cos_aep_info *fork_aep = cos_sched_aep_get(&fork_info->def_cinfo);
+	struct cos_compinfo *fork_cinfo = cos_compinfo_get(&fork_info->def_cinfo);
+	pgtblcap_t ckpt;
+	captblcap_t ckct;
+	vaddr_t dest, addr;
+	unsigned long size;
 
-       //printc("forking new click component\n");
-       ckct = cos_captbl_alloc(parent_cinfo_l);
-       assert(ckct);
+	//printc("forking new click component\n");
+	ckct = cos_captbl_alloc(parent_cinfo_l);
+	assert(ckct);
 
-       ckpt = cos_pgtbl_alloc(parent_cinfo_l);
-       assert(ckpt);
+	ckpt = cos_pgtbl_alloc(parent_cinfo_l);
+	assert(ckpt);
 
-       heap_ptr = round_up_to_pgd_page(shmem_addr + FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
-       cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, heap_ptr,
-                            BOOT_CAPTBL_FREE, parent_cinfo_l);
+	cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, heap_ptr,
+			  BOOT_CAPTBL_FREE, parent_cinfo_l);
 
-       size = heap_ptr - start_addr;
-       printc("size: %p - %p\n", heap_ptr, start_addr);
-       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
-       for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
-              cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
-       }
+	size = heap_ptr - start_addr;
+	printc("size: %p - %p\n", heap_ptr, start_addr);
+	if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
+	for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
+		cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
+	}
 
-       /* initialize rings*/
-       eos_rings_init((void *)ring_seg->addr);
-
-       fork_info->conf_file_idx = conf_file_idx;
-       fork_info->nf_id = next_nfid;
+	/* initialize rings*/
+	if (fork_info->nd_ring) eos_rings_init((void *)ring_seg->addr);
+	fork_info->conf_file_idx = conf_file_idx;
 }
 
 static vaddr_t
 _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo, 
-              struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr)
+	     struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr)
 {
-       unsigned long offset, text_offset;
-       vaddr_t allocated_data_seg;
+	unsigned long offset, text_offset;
+	vaddr_t allocated_data_seg;
+	int data_sz, heap_sz;
 
-       /*
-       * Alias the text segment in the new component
-       */ 
-       for (offset = 0; offset < text_seg->size; offset += PAGE_SIZE) {
-              cos_mem_alias_at(child_cinfo, start_addr + offset, 
-                                   parent_cinfo, text_seg->addr + offset);
-       }
-       text_offset = offset;
+	/*
+	 * Alias the text segment in the new component
+	 */ 
+	printc("dbg click start addr %x\n", start_addr);
+	for (offset = 0; offset < text_seg->size; offset += PAGE_SIZE) {
+		cos_mem_alias_at(child_cinfo, start_addr + offset, 
+				 parent_cinfo, text_seg->addr + offset);
+	}
+	text_offset = offset;
 
-       /*
-       * allocate mem for the data segment and populate it
-       */ 
-       allocated_data_seg = (vaddr_t) cos_page_bump_allocn(parent_cinfo, data_seg->size);
-       assert(allocated_data_seg);
-       memcpy((void *)allocated_data_seg, (void *) data_seg->addr, data_seg->size);
+	/*
+	 * allocate mem for the data segment and populate it
+	 */ 
+	allocated_data_seg = (vaddr_t) cos_page_bump_allocn(parent_cinfo, data_seg->size);
+	assert(allocated_data_seg);
+	memcpy((void *)allocated_data_seg, (void *) data_seg->addr, data_seg->size);
 
-       /*
-       * Alias the data segment in the new component
-       */
-       for (offset = 0; offset < data_seg->size; offset += PAGE_SIZE) {
-              cos_mem_alias_at(child_cinfo, start_addr + text_offset + offset,
-                                   parent_cinfo, allocated_data_seg + offset);
-       }
+	/*
+	 * Alias the data segment in the new component
+	 */
+	data_sz = d_seg->size;
+	heap_sz = data_seg->size - data_sz;
+	for (offset = 0; offset < data_sz; offset += PAGE_SIZE) {
+		cos_mem_alias_at(child_cinfo, start_addr + text_offset + offset,
+				 parent_cinfo, allocated_data_seg + offset);
+	}
+	if (heap_sz > 0) {
+		if (!cos_pgtbl_intern_alloc(parent_cinfo,  child_cinfo->pgtbl_cap, heap_ptr, heap_sz)) BUG();
+		for(; offset < data_seg->size; offset += PAGE_SIZE) {
+			cos_mem_alias_at(child_cinfo, heap_ptr + offset - data_sz,
+					 parent_cinfo, allocated_data_seg + offset);
+		}
+		child_cinfo->vas_frontier = heap_ptr + offset - data_sz;
+	}
 
-       return allocated_data_seg;
+	return allocated_data_seg;
 }
 
 static void
@@ -169,49 +191,59 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
                             parent_cinfo_l, BOOT_CAPTBL_SELF_INITTCAP_BASE);
        assert(ret == 0);
 
-       ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_INITTHD_BASE,
-                            parent_cinfo_l, initthd_cap);
-       assert(ret == 0);
 
+	if (initthd_cap) {
+		ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_INITTHD_BASE,
+				     parent_cinfo_l, initthd_cap);
+		assert(ret == 0);
+	}
 }
 
 static void
-_fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info, 
-                     vaddr_t allocated_data_seg, unsigned long comp_info_offset)
+_fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
+	       vaddr_t allocated_data_seg, unsigned long comp_info_offset, int is_template)
 {
-       struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
-       struct cos_aep_info *child_aep = cos_sched_aep_get(&chld_info->def_cinfo);
-       struct cos_component_information *ci;
-       compcap_t ckcc;
-       captblcap_t ckct;
-       pgtblcap_t  ckpt;
-       sinvcap_t sinv;
+	struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
+	struct cos_aep_info *child_aep = cos_sched_aep_get(&chld_info->def_cinfo);
+	struct cos_component_information *ci;
+	compcap_t ckcc;
+	captblcap_t ckct;
+	pgtblcap_t  ckpt;
+	sinvcap_t sinv;
 
-       chld_info->booter_vaddr = allocated_data_seg;
+	chld_info->booter_vaddr = allocated_data_seg;
 
-       ci = (void *) allocated_data_seg + comp_info_offset;
-       ci->cos_this_spd_id = next_nfid;
+	ci = (void *) allocated_data_seg + comp_info_offset;
+	ci->cos_this_spd_id = chld_info->nf_id;
 
-       ckct = child_cinfo->captbl_cap;
-       ckpt = child_cinfo->pgtbl_cap;
-       ckcc = cos_comp_alloc(parent_cinfo, ckct, ckpt,
-                                   (vaddr_t) ci->cos_upcall_entry);
-       assert(ckcc);
-       child_cinfo->comp_cap = ckcc;
+	ckct = child_cinfo->captbl_cap;
+	ckpt = child_cinfo->pgtbl_cap;
+	ckcc = cos_comp_alloc(parent_cinfo, ckct, ckpt,
+			      (vaddr_t) ci->cos_upcall_entry);
+	assert(ckcc);
+	child_cinfo->comp_cap = ckcc;
 
-       chld_info->initaep = sl_thd_initaep_alloc(&chld_info->def_cinfo, NULL, 0, 0, 0);
-       assert(chld_info->initaep);
-       sl_thd_param_set(chld_info->initaep, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+	if (chld_info->nd_thd || chld_info->conf_file_idx != -1) {
+		chld_info->initaep = sl_thd_initaep_alloc(&chld_info->def_cinfo, NULL, 0, 0, 0);
+		assert(chld_info->initaep);
+		sl_thd_param_set(chld_info->initaep, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+		if (is_template) _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
+		else cos_thd_mod(parent_cinfo, child_aep->thd, (void *)heap_ptr); 
+	} else {
+		chld_info->initaep = NULL;
+	}
 
-       _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
+	/* Create sinv capability from Userspace to Booter components */
+	sinv = cos_sinv_alloc(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)nf_entry_rets_inv, (vaddr_t)chld_info);
+	assert(sinv > 0);
 
-       /* Create sinv capability from Userspace to Booter components */
-       sinv = cos_sinv_alloc(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)nf_entry_rets_inv, (vaddr_t)chld_info);
-       assert(sinv > 0);
+	if (chld_info->initaep) {
+		copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
+	} else {
+		copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, 0);
+	}
 
-       copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
-
-       cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
+	if (chld_info->conf_file_idx != -1) cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
 }
 
 /*
@@ -279,6 +311,7 @@ fwp_allocate_shmem(vaddr_t start_addr)
 
        shmem_addr = (vaddr_t)cos_page_bump_allocn(boot_cinfo, FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
        printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
+	heap_ptr = round_up_to_pgd_page(shmem_addr + EOS_MAX_MEMSEGS_NUM * FWP_MEMSEG_SIZE);
 }
 
 void
