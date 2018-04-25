@@ -35,11 +35,20 @@ struct click_info {
        vaddr_t                     booter_vaddr;        /*the address of this component's data segment in the booter*/
        struct click_info           *next;
        vaddr_t                     shmem_addr;
+	struct mem_seg *data_seg;
+	int template_id;
+	int nd_thd, nd_ring, nd_sinv;
+};
 } chld_infos[FWP_MAX_NUM_NFs];
 
 struct nf_chain {
-       struct click_info *first_nf;
+	int chain_id;
+	int tot_nf, active_nf;
+	struct click_info *first_nf, *last_nf;
        struct nf_chain *next;
+	struct eos_ring *rx_out;
+	/* TODO: add mca conn, tx ring for clean up */
+};
 } chains[FWP_MAX_NUM_CHAINS];
 
 struct sl_thd  *mca_thd;
@@ -48,5 +57,6 @@ struct mem_seg templates[FWP_MAX_NUM_NFs];
 
 void fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr, 
               unsigned long comp_info_offset, vaddr_t sinv_next_call);
+void fwp_chain_activate(struct nf_chain *chain);
 
 #endif /*FWP_MANAGER_H*/

@@ -69,11 +69,10 @@ fwp_checkpoint(void *token, unsigned int nfid)
  *        * The id represents the COMPONENT ID that is checkpointed.
  *               * Example: template[1] represnts the checkpoint of component 1
  *                      */
-       templates[nfid].addr = addr;
-       templates[nfid].size = vm_range;
+       child_info->data_seg->addr = addr;
+       child_info->data_seg->size = vm_range;
 
-       printc("\tCheckpointing click component's %d data %lx (range:%04x)\n", nfid,
-                     templates[nfid].addr, templates[nfid].size);
+       printc("\tCheckpointing click component's %d data %lx (range:%04x)\n", nfid, child_info->data_seg->addr, child_info->data_seg->size);
 
        /*
  *        * switch to the booter component
@@ -90,8 +89,8 @@ fwp_clean_chain(struct nf_chain *chain)
        struct click_info *this_ci;
 
        for(this_ci = chain->first_nf; this_ci != NULL; this_ci = this_ci->next) {
-              memcpy((void *)this_ci->booter_vaddr, (void *)templates[this_ci->nf_id].addr, 
-                     templates[this_ci->nf_id].size);
+	       memcpy((void *)this_ci->booter_vaddr, (void *)(this_ci->data_seg->addr), 
+                     this_ci->data_seg->size);
               printc("nfid: %d\n", this_ci->nf_id);
        }
 }
