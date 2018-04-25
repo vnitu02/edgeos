@@ -10,15 +10,13 @@
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
 
 /* 
- * IDs one and two are given to the booter 
+ * NFIDs one and two are given to the booter 
  * component and the first loaded component
  */
-long next_nfid = 2;
 
 vaddr_t shmem_addr;
 
 struct mem_seg *t_seg;
-struct mem_seg *d_seg;
 unsigned long cinfo_offset;
 vaddr_t s_addr;
 vaddr_t shmem_inv_addr;
@@ -87,9 +85,12 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
        cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, heap_ptr,
                             BOOT_CAPTBL_FREE, parent_cinfo_l);
 
-       size = heap_ptr - start_addr;
-       printc("size: %p - %p\n", heap_ptr, start_addr);
-       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
+       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, text_seg->size + data_seg->size)) BUG();
+
+       addr = round_to_pgd_page(ring_seg->addr);
+       size = ring_seg->size + (ring_seg->addr - addr);
+       if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, addr, size)) BUG();
+
        for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
               cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
        }
@@ -98,7 +99,6 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
        eos_rings_init((void *)ring_seg->addr);
 
        fork_info->conf_file_idx = conf_file_idx;
-       fork_info->nf_id = next_nfid;
 }
 
 static vaddr_t
@@ -172,7 +172,8 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
 
 static void
 _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info, 
-                     vaddr_t allocated_data_seg, unsigned long comp_info_offset)
+                     vaddr_t allocated_data_seg, unsigned long comp_info_offset,
+                     int conf_file_idx)
 {
        struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
        struct cos_aep_info *child_aep = cos_sched_aep_get(&chld_info->def_cinfo);
@@ -185,7 +186,7 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
        chld_info->booter_vaddr = allocated_data_seg;
 
        ci = (void *) allocated_data_seg + comp_info_offset;
-       ci->cos_this_spd_id = next_nfid;
+       ci->cos_this_spd_id = chld_info->nf_id;
 
        ckct = child_cinfo->captbl_cap;
        ckpt = child_cinfo->pgtbl_cap;
@@ -206,7 +207,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
        copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
 
-       cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
+       if (conf_file_idx != -1)
+              cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
 }
 
 /*
@@ -228,7 +230,7 @@ fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg 
 
        allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, start_addr);
 
-       _fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset);
+       _fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset, conf_file_idx);
 }
 
 static void *
@@ -258,7 +260,6 @@ fwp_allocate_shmem(vaddr_t start_addr)
               addr = cos_mem_alias(boot_cinfo, boot_cinfo, empty_page);
 
        shmem_addr = (vaddr_t)cos_page_bump_allocn(boot_cinfo, FWP_MAX_MEMSEGS * FWP_MEMSEG_SIZE);
-       printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
 }
 
 void
@@ -324,6 +325,10 @@ fwp_create_chain2(int nfid, int chain_idx, int shmem_idx, int conf_file1, int co
        nf1->conf_file_idx = conf_file1;
        nf2->conf_file_idx = conf_file2;
 
+       printc("nfid %d\n", nfid);
+       nf1->nf_id = nfid;
+       nf2->nf_id = nfid + 1;
+
        return &chains[chain_idx];
 }
 
@@ -339,7 +344,7 @@ fwp_allocate_chain(struct nf_chain *chain){
 
               mem_seg.addr = this_nf->shmem_addr;
               mem_seg.size = FWP_MEMSEG_SIZE;
-              fwp_fork(this_nf, t_seg, d_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr);
+              fwp_fork(this_nf, t_seg, this_nf->data_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr);
        }
        fwp_chain_put(chain, FWP_CHAIN_CLEANED, 0);
 }
@@ -360,9 +365,10 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
               unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
        struct nf_chain *chain;
+       int i=2;
+       struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
 
        t_seg = text_seg;
-       d_seg = data_seg;
        cinfo_offset = comp_info_offset;
        s_addr = start_addr;
        shmem_inv_addr = sinv_next_call;
@@ -370,9 +376,21 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
        fwp_init();
 
        chain = fwp_create_chain2(2, 0, 0, 3, 4);
+       chld_infos[2].data_seg = data_seg;
+       chld_infos[3].data_seg = data_seg;
        fwp_allocate_chain(chain);
        fwp_allocate_shmem_sinv(cos_compinfo_get(&chld_infos[2].def_cinfo),
                                    cos_compinfo_get(&chld_infos[3].def_cinfo)->comp_cap);
+
+       while (1){
+              chain = fwp_create_chain2(i*2, i-1, i-1, -1, -1);
+              chld_infos[i*2].data_seg = &templates[2];
+              chld_infos[i*2+1].data_seg = &templates[3];
+              fwp_allocate_chain(chain);
+              fwp_allocate_shmem_sinv(cos_compinfo_get(&chld_infos[i*2].def_cinfo),
+                                          cos_compinfo_get(&chld_infos[i*2+1].def_cinfo)->comp_cap);
+              i++;
+       }
 
        fwp_chain_get(FWP_CHAIN_CLEANED, 0);
        cos_thd_switch(sl_thd_thdcap(chld_infos[2].initaep));

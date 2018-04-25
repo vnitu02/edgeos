@@ -35,6 +35,7 @@ struct click_info {
        vaddr_t                     booter_vaddr;        /*the address of this component's data segment in the booter*/
        struct click_info           *next;
        vaddr_t                     shmem_addr;
+       struct mem_seg              *data_seg;
 } chld_infos[FWP_MAX_NUM_NFs];
 
 struct nf_chain {
