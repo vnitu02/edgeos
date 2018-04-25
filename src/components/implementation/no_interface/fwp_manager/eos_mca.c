@@ -53,7 +53,7 @@ mca_process(struct mca_conn *conn)
 
 	src = conn->src_ring;
 	dst = conn->dst_ring;
-	sn = GET_RING_NODE(src, src->mca_head & EOS_RING_MASK);
+	sn  = GET_RING_NODE(src, src->mca_head & EOS_RING_MASK);
 	if (sn->state != PKT_SENT_READY) return ;
 	assert(sn->pkt);
 	assert(sn->pkt_len);
@@ -64,9 +64,11 @@ mca_process(struct mca_conn *conn)
 	assert(rn->pkt);
 	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;
-	sn->state = PKT_SENT_DONE;
-	rn->state = PKT_RECV_READY;
+	rn->port    = sn->port;
+	sn->state   = PKT_SENT_DONE;
+	rn->state   = PKT_RECV_READY;
 	src->mca_head++;
+	fh = cos_faa(&(dst->pkt_cnt), 1);
 }
 
 static inline void
@@ -75,7 +77,7 @@ mca_scan(struct mca_conn **list)
 	struct mca_conn **p, *c;
 
 	p = list;
-	c = *p;
+	c = ps_load(p);
 	while (c) {
 		if (c->used) {
 			p = &(c->next);

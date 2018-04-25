@@ -21,6 +21,7 @@ eos_pkt_allocate(struct eos_ring *ring, int len)
 	void *ret;
 	(void)len;
 
+	assert(len <= EOS_PKT_MAX_SZ);
 	fh  = cos_faa(&(ring->free_head), 1);
 	rn  = GET_RING_NODE(ring, fh & EOS_RING_MASK);
 	/* printc("dbg pkt alloc ring %p pkt %p free head %d sta %d\n", ring, rn, ring->free_head & EOS_RING_MASK, rn->state); */
@@ -47,7 +48,7 @@ eos_pkt_free(struct eos_ring *ring, void *pkt)
 }
 
 static inline void
-eos_pkt_send(struct eos_ring *ring, void *pkt, int len)
+eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 {
 	struct eos_ring_node *rn;
 
@@ -55,13 +56,14 @@ eos_pkt_send(struct eos_ring *ring, void *pkt, int len)
 	assert(rn->state == PKT_EMPTY);
 	rn->pkt     = pkt;
 	rn->pkt_len = len;
+	rn->port    = port;
 	rn->state   = PKT_SENT_READY;
 	ring->tail++;
 	/* printc("dbg pkt send ring %p pkt %p tail %d sta %d\n", ring, rn, ring->tail & EOS_RING_MASK, rn->state); */
 }
 
 static inline void *
-eos_pkt_recv(struct eos_ring *ring, int *len)
+eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
 {
 	struct eos_ring_node *rn;
 	void *ret = NULL;
@@ -77,10 +79,12 @@ eos_pkt_recv(struct eos_ring *ring, int *len)
 		assert(rn->pkt_len);
 		ret         = rn->pkt;
 		*len        = rn->pkt_len;
+		*port       = rn->port;
 		rn->pkt     = NULL;
 		rn->pkt_len = 0;
 		rn->state   = PKT_EMPTY;
 		ring->tail++;
+		cos_faa(&(ring->pkt_cnt), -1);
 	}
 	return ret;
 }
