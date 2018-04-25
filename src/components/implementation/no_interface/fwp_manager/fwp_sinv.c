@@ -3,8 +3,10 @@
 
 #include <nf_hypercall.h>
 #include <sl.h>
-
+#include "eos_utils.h"
 #include "fwp_manager.h"
+
+extern struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 
 struct cos_compinfo *boot_spd_compinfo_get(spdid_t spdid);
 

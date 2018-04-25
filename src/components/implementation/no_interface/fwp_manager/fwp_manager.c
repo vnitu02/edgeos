@@ -4,7 +4,9 @@
 #include "fwp_manager.h"
 #include "fwp_chain_cache.h"
 #include "eos_ring.h"
+#include "eos_utils.h"
 #include "eos_mca.h"
+#include "ninf.h"
 
 /* Assembly function for sinv from new component */
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
@@ -20,8 +22,11 @@ vaddr_t shmem_addr;
 struct mem_seg *t_seg;
 struct mem_seg *d_seg;
 unsigned long cinfo_offset;
-vaddr_t s_addr;
-vaddr_t shmem_inv_addr;
+vaddr_t s_addr, shmem_inv_addr;
+struct sl_thd  *mca_thd;
+struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
+static struct nf_chain chains[EOS_MAX_CHAIN_NUM];
+struct click_info chld_infos[EOS_MAX_NF_NUM];
 
 static void
 _alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
