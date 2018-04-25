@@ -6,12 +6,14 @@ MANDITORY=c_stub.o cos_asm_upcall.o cos_asm_ainv.o cos_component.o
 MAND=$(MANDITORY_LIB)
 SIMPLE_STACKS=c_stub.o cos_asm_upcall_simple_stacks.o cos_asm_ainv.o cos_component.o
 SIMPLE_STKLIB=simple_stklib.o
+SIMPLE_STACKS_NF=c_stub.o cos_asm_upcall_simple_stacks_NF.o cos_asm_ainv.o cos_component.o
+SIMPLE_STKLIB_NF=simple_stklib_NF.o
 
 CINC_ENV=$(CINC)
 export CINC_ENV
 
 .PHONY: all sl ps
-all: $(LIBS) $(MAND) $(SIMPLE_STKLIB) sl
+all: $(LIBS) $(MAND) $(SIMPLE_STKLIB) $(SIMPLE_STKLIB_NF) sl
 
 # we have to compile these without dietlibc so that there are not
 # symbol conflicts and this is why we have the %.a here and don't
@@ -25,6 +27,9 @@ $(MAND): $(MANDITORY)
 	@$(LD) $(LDFLAGS) -r -o $@ $^
 
 $(SIMPLE_STKLIB): $(SIMPLE_STACKS)
+	@$(LD) $(LDFLAGS) -r -o $@ $^
+
+$(SIMPLE_STKLIB_NF): $(SIMPLE_STACKS_NF)
 	@$(LD) $(LDFLAGS) -r -o $@ $^
 
 sl:
