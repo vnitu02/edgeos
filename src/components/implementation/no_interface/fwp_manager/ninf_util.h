@@ -16,6 +16,7 @@
 #include <rte_thash.h>
 #include <rte_hash.h>
 #include "eos_utils.h"
+#include "eos_ring.h"
 
 #define NUM_NIC_PORTS 2
 #define NUM_MBUFS 4096
@@ -46,6 +47,8 @@ void check_all_ports_link_status(uint8_t port_num, uint32_t port_mask);
 int rte_eth_dev_cos_setup_ports(unsigned nb_ports, struct rte_mempool *mp);
 void print_ether_addr(struct rte_mbuf *m);
 
+struct tx_ring * ninf_tx_add_ring(struct eos_ring *r);
+void ninf_tx_del_ring(struct tx_ring *r);
 struct ipv4_hdr *ninf_pkt_ipv4_hdr(struct rte_mbuf* pkt);
 struct tcp_hdr *ninf_pkt_tcp_hdr(struct rte_mbuf* pkt);
 struct udp_hdr *ninf_pkt_udp_hdr(struct rte_mbuf* pkt);
@@ -73,9 +76,6 @@ ninf_fill_key(struct pkt_ipv4_5tuple *key, struct rte_mbuf *pkt)
         struct tcp_hdr *tcp_hdr;
         struct udp_hdr *udp_hdr;
 
-        if (unlikely(!ninf_pkt_is_ipv4(pkt))) {
-                return -1;
-        }
         ipv4_hdr = ninf_pkt_ipv4_hdr(pkt);
         memset(key, 0, sizeof(struct pkt_ipv4_5tuple));
         key->proto  = ipv4_hdr->next_proto_id;

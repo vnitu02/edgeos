@@ -14,7 +14,7 @@ mca_push_l(struct mca_conn **l, struct mca_conn *c)
 	struct mca_conn *t;
 
 	do {
-		t       = *l;
+		t       = ps_load(l);
 		c->next = t;
 	} while (!cos_cas((unsigned long *)l, (unsigned long)t, (unsigned long)c));
 }
@@ -26,8 +26,8 @@ mca_conn_alloc(void)
 
 	assert(fl);
 	do {
-		t = fl->next;
-		r = fl;
+		r = ps_load(&fl);
+		t = r->next;
 	} while (!cos_cas((unsigned long *)&fl, (unsigned long)r, (unsigned long)t));
 	return r;
 }

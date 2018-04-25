@@ -6,7 +6,7 @@
 
 #define TX_MBUF_DATA_SIZE 0
 #define TX_MBUF_SIZE (TX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
-#define NINF_TX_BATCH 10
+#define NINF_TX_BATCH 2
 
 struct tx_ring {
 	struct eos_ring *r;
@@ -32,7 +32,7 @@ __ring_push(struct tx_ring **h, struct tx_ring *n)
 	struct tx_ring *t;
 
 	do {
-		t       = *h;
+		t       = ps_load(h);
 		n->next = t;
 	} while (!cos_cas((unsigned long *)h, (unsigned long)t, (unsigned long)n));
 }
@@ -43,7 +43,7 @@ __ring_pop(struct tx_ring **h)
 	struct tx_ring *r, *t;
 
 	do {
-		r = *h;
+		r = ps_load(h);
 		assert(r);
 		t = r->next;
 	} while (!cos_cas((unsigned long *)h, (unsigned long)r, (unsigned long)t));
@@ -85,6 +85,7 @@ ninf_tx_del_ring(struct tx_ring *r)
 	r->state = 0;
 }
 
+extern struct rte_mempool *rx_mbuf_pool;
 static inline void
 ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 {
@@ -97,9 +98,10 @@ ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 	}
 	for(i=0; i<cnt; i++) {
 		tx_batch_mbufs[i]->buf_addr     = batch[i].rn->pkt;
-		tx_batch_mbufs[i]->buf_physaddr = batch[i].phy_addr;
-		tx_batch_mbufs[i]->data_len     = batch[i].rn->pkt_len;
+		tx_batch_mbufs[i]->buf_physaddr = (uint64_t)batch[i].phy_addr;
 		tx_batch_mbufs[i]->userdata     = batch[i].rn;
+		tx_batch_mbufs[i]->data_len     = (uint16_t)batch[i].rn->pkt_len;
+		tx_batch_mbufs[i]->data_off     = 0;
 	}
 	nb_tx = rte_eth_tx_burst(port, 0, tx_batch_mbufs, cnt);
 	assert(nb_tx == cnt);
@@ -166,7 +168,7 @@ ninf_tx_scan(struct tx_ring **p)
 	struct tx_ring *c;
 	int ret = 0;
 
-	c = *p;
+	c = ps_load(p);
 	while (c) {
 		if (c->state) {
 			p = &(c->next);

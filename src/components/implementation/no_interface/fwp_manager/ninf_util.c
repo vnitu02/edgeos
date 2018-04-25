@@ -2,7 +2,7 @@
 #include "ninf_util.h"
 
 #define RX_RING_SIZE    512
-#define TX_RING_SIZE    64
+#define TX_RING_SIZE    128
 #define MBUF_CACHE_SIZE 250
 #define RX_MBUF_DATA_SIZE 2048
 #define RX_MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
@@ -239,7 +239,7 @@ ninf_pkt_udp_hdr(struct rte_mbuf* pkt)
 
 /*software caculate RSS*/
 uint32_t
-ninf_softrss(struct pkt_ipv4_5tuple *key)
+ninf_rss(struct pkt_ipv4_5tuple *key)
 {
 	union rte_thash_tuple tuple;
 	uint8_t rss_key_be[RTE_DIM(rss_symmetric_key)];
@@ -290,7 +290,7 @@ ninf_ft_add_key(struct ninf_ft* table, struct pkt_ipv4_5tuple *key, uint32_t rss
 
         tbl_index = rte_hash_add_key_with_hash(table->hash, (const void *)key, rss);
         assert(tbl_index >= 0);
-	*data = ninf_ft_get_data(table, tbl_index);
+	*data = &table->data[tbl_index*table->entry_size];
 
         return tbl_index;
 }

@@ -1,13 +1,13 @@
 #include <cos_defkernel_api.h>
 #include "ninf.h"
 #include "ninf_util.h"
+#include "eos_ring.h"
 
 #define MALLOC_BUMP_SZ (2*PAGE_SIZE)
 
 void *malloc_bump = NULL;
 int malloc_left_sz = 0;
 extern struct cos_pci_device devices[PCI_DEVICE_NUM];
-extern struct ninf_ft ninf_ft;
 
 cos_eal_thd_t
 cos_eal_thd_curr(void)
@@ -84,6 +84,7 @@ cos_tx_cb(void *userdata)
 {
 	struct eos_ring_node *n;
 
+	if (!userdata) return ; /* those are pass through pkts, ARP ... */
 	n = (struct eos_ring_node *)userdata;
 	n->state = PKT_SENT_DONE;
 }
@@ -94,17 +95,8 @@ ninf_init(void)
 	int ret;
 
 	ret = dpdk_init();
-	if (ret < 0) {
-		printc("DPDK EAL init return error %d \n", ret);
-		goto halt;
-	}
+	assert(!ret);
 
 	check_all_ports_link_status(NUM_NIC_PORTS, 3);
-	ninf_ft_init(&ninf_ft, EOS_MAX_FLOW_NUM, sizeof(struct eos_ring *));
-
-halt:
-	printc("going to SPIN\n");
-	SPIN();
-	return ;
 }
 
