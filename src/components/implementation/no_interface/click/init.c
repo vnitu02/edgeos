@@ -16,19 +16,22 @@ int conf_file_idx = 0;
 vaddr_t shmem_addr;
 int packet_ptr;
 int packet_length;
+int packet_port;
 
 #define MAX_CONF_FILES 5
 char *conf_files[MAX_CONF_FILES];
 
 int
-click_shmem(int packet_p, int packet_l)
+click_shmem(int packet_p, int packet_l, int port_l)
 {
        /*FIXME an ugly hack to pass a packet to the click code*/
-       packet_ptr = packet_p;
+       packet_ptr    = packet_p;
        packet_length = packet_l;
+       packet_port   = port_l;
        run_driver_once();
-       packet_ptr = NULL;
+       packet_ptr    = NULL;
        packet_length = 0;
+       packet_port   = -1;
 }
 
 static void 

@@ -12,9 +12,9 @@
  *  * sinv to another click component
  *   */
 static void
-next_call_sinv(int packet_addr, int packet_length)
+next_call_sinv(int packet_addr, int packet_length, int port)
 {
-       cos_sinv(BOOT_CAPTBL_NEXT_SINV_CAP, 0, packet_addr, packet_length, 0);
+       cos_sinv(BOOT_CAPTBL_NEXT_SINV_CAP, 0, packet_addr, packet_length, port);
 }
 
 #endif /*EOS_INIT_H*/

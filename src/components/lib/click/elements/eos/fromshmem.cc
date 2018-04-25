@@ -50,6 +50,7 @@
 extern "C"{
        extern int packet_ptr;
        extern int packet_length;
+       extern int packet_port;
 }
 
 CLICK_DECLS
@@ -85,7 +86,7 @@ bool FromShmem::run_task(Task *) {
 
        assert(packet_ptr);
        assert(packet_length);
-       p = Packet::make((unsigned char*)packet_ptr, packet_length, NULL, NULL);
+       p = Packet::make((unsigned char*)packet_ptr, packet_length, NULL, NULL, packet_port);
        output(0).push(p);
 	_task.fast_reschedule();
        return 0;

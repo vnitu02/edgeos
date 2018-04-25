@@ -70,7 +70,7 @@ class Packet { public:
     typedef void (*buffer_destructor_type)(unsigned char* buf, size_t sz, void* argument);
     static WritablePacket* make(unsigned char* data, uint32_t length,
 				buffer_destructor_type buffer_destructor,
-                                void* argument = (void*) 0) CLICK_WARN_UNUSED_RESULT;
+                                void* argument = (void*) 0, int port = -1) CLICK_WARN_UNUSED_RESULT;
 #endif
 
     static void static_cleanup();
@@ -84,6 +84,7 @@ class Packet { public:
     inline const unsigned char *data() const;
     inline const unsigned char *end_data() const;
     inline uint32_t length() const;
+    inline int port() const;
     inline uint32_t headroom() const;
     inline uint32_t tailroom() const;
     inline const unsigned char *buffer() const;
@@ -730,6 +731,7 @@ class Packet { public:
     /* mimic Linux sk_buff */
     unsigned char *_head; /* start of allocated buffer */
     unsigned char *_data; /* where the packet starts */
+	int _port;
     unsigned char *_tail; /* one beyond end of packet */
     unsigned char *_end;  /* one beyond end of allocated buffer */
 # if CLICK_BSDMODULE
@@ -891,6 +893,12 @@ Packet::data() const
 #else
     return _data;
 #endif
+}
+
+inline int
+Packet::port() const
+{
+    return _port;
 }
 
 /** @brief Return the packet's end data pointer.

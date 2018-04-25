@@ -93,7 +93,7 @@ ToRing::push(int port, Packet *p)
 {
        struct eos_ring *output_ring = get_output_ring((void *)_ring_ptr);
 
-       eos_pkt_send(output_ring, (void *)p->data(), p->length());
+       eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
        p->kill();
 }
 

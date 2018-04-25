@@ -92,15 +92,15 @@ bool
 FromRing::run_task(Task *)
 {
        Packet *p;
-       int len, c = 0;
+       int len, c = 0, port;
        void *pkt;
        struct eos_ring *input_ring = get_input_ring((void *)_ring_ptr);
        struct eos_ring *ouput_ring = get_output_ring((void *)_ring_ptr);
 
        eos_pkt_collect(input_ring, ouput_ring);
-       pkt = eos_pkt_recv(input_ring, &len);
+       pkt = eos_pkt_recv(input_ring, &len, &port);
        if (pkt != NULL){
-              p = Packet::make((unsigned char*) pkt, len, NULL, NULL);
+	       p = Packet::make((unsigned char*) pkt, len, NULL, NULL, port);
               output(0).push(p);
               c++;
        }

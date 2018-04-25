@@ -75,7 +75,7 @@ void ToShmem::cleanup(CleanupStage stage) {
 }
 
 void ToShmem::push(int port, Packet *p) {
-       next_call_sinv((int)p->data(), (int)p->length());
+	next_call_sinv((int)p->data(), (int)p->length(), p->port());
        p->kill();
 }
 
