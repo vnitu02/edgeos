@@ -974,10 +974,10 @@ composite_syscall_handler(struct pt_regs *regs)
 	}
 
 	/* FIXME: use a cap for print */
-	if (unlikely(cap == PRINT_CAP_TEMP)) {
+	/*if (unlikely(cap == PRINT_CAP_TEMP)) {
 		printfn(regs);
 		return 0;
-	}
+	}*/
 
 	ci = thd_invstk_current(thd, &ip, &sp, cos_info);
 	assert(ci && ci->captbl);
