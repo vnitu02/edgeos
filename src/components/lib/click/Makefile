@@ -25,4 +25,4 @@ libclick.a: $(OBJ_CC)
 	@$(AR) rcs $@ $^
 	#$(LD) -r -o $@ $^
 	@mv $^ $(BUILDDIR)
-	@mv $@ ../
+	@cp $@ ../

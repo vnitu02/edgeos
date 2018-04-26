@@ -17,7 +17,7 @@
 
 #include "cpu_ghz.h"
 
-#define NUM_CPU 1
+#define NUM_CPU 5
 
 /*
  * 1 MB, note that this is not the PA of kernel-usable memory, instead
