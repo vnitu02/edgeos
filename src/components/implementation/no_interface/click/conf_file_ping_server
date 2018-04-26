@@ -1,0 +1,27 @@
+define(
+	$IP 192.168.1.2,
+	$MAC 90:e2:ba:26:f0:60,
+);
+
+
+source :: FromRing
+sink   :: ToRing
+
+// classifies packets 
+c :: Classifier(
+12/0806 20/0001, // ARP Requests goes to output 0
+12/0806 20/0002, // ARP Replies to output 1
+12/0800, // ICMP Requests to output 2
+-); // without a match to output 3
+
+arpq :: ARPQuerier($IP, $MAC);
+arpr :: ARPResponder($IP $MAC);
+
+source -> c;
+c[0]  -> ARPPrint -> arpr -> sink;
+c[1] -> [1]arpq;
+Idle -> [0]arpq;
+arpq -> ARPPrint -> sink;
+c[2] -> CheckIPHeader(14) -> ICMPPingResponder() -> EtherMirror() -> sink;
+c[3] -> Discard;
+

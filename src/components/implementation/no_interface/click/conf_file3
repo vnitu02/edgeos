@@ -11,6 +11,5 @@
 // Messages are printed to the system log (run 'dmesg' to see them, or look
 // in /var/log/messages), and to the file '/click/messages'.
 
-FromShmem
-       -> Print(ok)
-       -> Discard;
+FromRing
+       -> ToRing;
