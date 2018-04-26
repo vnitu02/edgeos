@@ -6,8 +6,8 @@
 
 #include "eos_ring.h"
 
-#define FWP_MAX_NUM_NFs         3000   /* This also includes the booter and the initial component*/
-#define FWP_MAX_NUM_CHAINS      1000   /* The maximum number of chains in the system*/
+#define FWP_MAX_NUM_NFs         2048   /* This also includes the booter and the initial component*/
+#define FWP_MAX_NUM_CHAINS      1024   /* The maximum number of chains in the system*/
 
 #define FWP_RINGS_SIZE (2 * sizeof(struct eos_ring) + 2 * EOS_RING_SIZE * sizeof(struct eos_ring_node))
 #define FWP_MEMSEG_SIZE (round_up_to_page(FWP_RINGS_SIZE) + EOS_RING_SIZE * EOS_PKT_MAX_SZ)
