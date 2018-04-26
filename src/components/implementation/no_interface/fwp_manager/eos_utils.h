@@ -13,6 +13,15 @@
 #define FWP_RINGS_SIZE (2 * sizeof(struct eos_ring) + 2 * EOS_RING_SIZE * sizeof(struct eos_ring_node))
 #define CURR_CINFO() (cos_compinfo_get(cos_defcompinfo_curr_get()))
 
+enum {
+	FWP_MGR_CORE = 0,
+	MCA_CORE     = 1,
+	NINF_RX_CORE = 2,
+	NINF_TX_CORE = 3,
+	NF_MIN_CORE  = 4,
+	NF_MAX_CORE  = NUM_CPU,
+};
+
 /*
  *  * sinv to another click component
  *   */

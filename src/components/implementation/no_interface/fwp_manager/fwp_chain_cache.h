@@ -4,7 +4,7 @@
 #include"fwp_manager.h"
 
 /*the number of cores in the system*/
-#define FWP_CORES 1
+#define FWP_CORES NF_MAX_CORE
 
 enum fwp_chain_state
 {

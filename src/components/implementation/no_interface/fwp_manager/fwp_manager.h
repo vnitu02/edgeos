@@ -32,6 +32,7 @@ struct click_info {
 	struct mem_seg *data_seg;
 	int template_id;
 	int nd_thd, nd_ring, nd_sinv;
+	int core_id;
 };
 
 struct nf_chain {

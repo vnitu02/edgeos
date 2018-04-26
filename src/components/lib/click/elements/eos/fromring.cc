@@ -49,6 +49,10 @@
 
 #include <eos_pkt.h>
 
+extern "C"{
+	extern void click_block();
+}
+
 CLICK_DECLS
 
 FromRing::FromRing() :
@@ -99,11 +103,13 @@ FromRing::run_task(Task *)
 
        eos_pkt_collect(input_ring, ouput_ring);
        pkt = eos_pkt_recv(input_ring, &len, &port);
-       if (pkt != NULL){
-	       p = Packet::make((unsigned char*) pkt, len, NULL, NULL, port);
-              output(0).push(p);
-              c++;
+       while (!pkt) {
+	       click_block();
+	       pkt = eos_pkt_recv(input_ring, &len, &port);
        }
+       p = Packet::make((unsigned char*) pkt, len, NULL, NULL, port);
+       output(0).push(p);
+       c++;
 
        _task.fast_reschedule();
 	return c > 0;

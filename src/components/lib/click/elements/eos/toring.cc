@@ -49,6 +49,7 @@
 extern "C" {
        #include <eos_ring.h>
        #include <eos_pkt.h>
+	extern void click_block();
 }
 
 CLICK_DECLS
@@ -92,8 +93,13 @@ void
 ToRing::push(int port, Packet *p)
 {
        struct eos_ring *output_ring = get_output_ring((void *)shmem_addr);
+       int r;
 
-       eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
+       r = eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
+       while (r) {
+	       click_block();
+	       r = eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
+       }
        p->kill();
 }
 

@@ -3,8 +3,9 @@
 #include "ninf.h"
 #include "ninf_util.h"
 #include "fwp_chain_cache.h"
+#include "eos_sched.h"
 
-/* #define NO_FLOW_ISOLATION */
+#define NO_FLOW_ISOLATION
 #define DPDK_PKT_OFF 256
 #define NF_PER_CORE_BATCH 1
 #define DPDK_PKT2MBUF(pkt) ((struct rte_mbuf *)((void *)(pkt) - DPDK_PKT_OFF))
@@ -38,7 +39,7 @@ ninf_flow2_core(struct rte_mbuf *mbuf, struct pkt_ipv4_5tuple *key, uint32_t rss
 {
 	int r;
 
-	return 0;
+	return NF_MIN_CORE;
 	r = major_core_id;
 	minor_core_id++;
 	if (minor_core_id == NF_PER_CORE_BATCH) {
@@ -105,7 +106,7 @@ ninf_get_nf_ring(struct rte_mbuf *mbuf)
 #ifdef NO_FLOW_ISOLATION
 	if (!global_chain) {
 		printc("dbg new flow\n");
-		global_chain = fwp_chain_get(FWP_CHAIN_CLEANED, 0);
+		global_chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE);
 		assert(global_chain);
 		global_rx_out = ninf_setup_new_chain(global_chain);
 	}
@@ -171,5 +172,6 @@ ninf_rx_init()
 {
 	major_core_id = NF_MIN_CORE;
 	minor_core_id = 0;
+	global_chain = NULL;
 	ninf_ft_init(&ninf_ft, EOS_MAX_FLOW_NUM, sizeof(struct eos_ring *));
 }

@@ -8,6 +8,10 @@
 
 #include "boot_deps.h"
 #include "fwp_manager.h"
+#include "eos_mca.h"
+#include "eos_sched.h"
+#include "eos_utils.h"
+#include "ninf.h"
 
 #define USER_CAPS_SYMB_NAME "ST_user_caps"
 
@@ -31,6 +35,7 @@ struct component_init_str {
 } __attribute__((packed));
 
 struct component_init_str *init_args;
+volatile int init_core_done = 0, rx_init_done = 0;
 
 static void
 boot_find_cobjs(struct cobj_header *h, int n)
@@ -457,6 +462,48 @@ void
 cos_init(void)
 {
 	struct cobj_header *h;
+	int cur_coreid;
+
+	cur_coreid = cos_cpuid();
+	assert(cur_coreid < NF_MAX_CORE);
+
+	if (cur_coreid != FWP_MGR_CORE) {
+		while (!init_core_done) {
+			__asm__ __volatile__("rep;nop": : :"memory");
+		}
+
+		cos_defcompinfo_sched_init();
+		sl_init(SL_MIN_PERIOD_US);
+		switch (cur_coreid) {
+		case MCA_CORE:
+			mca_init(CURR_CINFO());
+			cos_faa(&init_core_done, 1);
+			printc("mca_run core %d\n", MCA_CORE);
+			mca_run(NULL);
+			assert(0);
+		case NINF_RX_CORE:
+			ninf_init();
+			ninf_rx_init();
+			rx_init_done = 1;
+			printc("ninf_rx_loop core %d\n", NINF_RX_CORE);
+			cos_faa(&init_core_done, 1);
+			ninf_rx_loop();
+			assert(0);
+		case NINF_TX_CORE:
+			while (!rx_init_done) {
+				__asm__ __volatile__("rep;nop": : :"memory");
+			}
+			ninf_tx_init();
+			cos_faa(&init_core_done, 1);
+			printc("ninf_tx_init core %d\n", NINF_TX_CORE);
+			ninf_tx_loop();
+			assert(0);
+		default:
+			printc("nf sl_sched_loop core %d\n", cur_coreid);
+			sl_sched_loop();
+			assert(0);
+		}
+	}
 
 	PRINTLOG(PRINT_DEBUG, "Booter for new kernel\n");
 

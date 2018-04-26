@@ -27,6 +27,12 @@
 						req.sl_xcpu_req_thd_wakeup.tid = tid; \
 					     } while (0)
 
+#define	SL_REQ_THD_SET_TLS(req, ci, tc, tlsaddr) do { \
+						req.sl_xcpu_req_set_tls.ci = ci; \
+						req.sl_xcpu_req_set_tls.tc = tc; \
+						req.sl_xcpu_req_set_tls.tlsaddr = tlsaddr; \
+	} while (0)
+
 #define SL_REQ_TYPE(req, type) do {						\
 						req->type = type;			\
 						req->client = cos_cpuid();				\
@@ -134,6 +140,20 @@ sl_xcpu_thd_wakeup(cpuid_t cpu, thdid_t tid)
 }
 
 int
+sl_xcpu_thd_set_tls(cpuid_t cpu, struct cos_compinfo *ci, thdcap_t *tc, void *tlsaddr)
+{
+	struct sl_xcpu_request req;
+
+	if (cpu == cos_cpuid()) return -EINVAL;
+	if (!bitmap_check(sl__globals()->cpu_bmp, cpu)) return -EINVAL;
+
+	sl_cs_enter();
+
+	SL_REQ_THD_SET_TLS(req, ci, tc, tlsaddr);
+	return __sl_xcpu_req_exit(&req, cpu, SL_XCPU_THD_SET_TLS);
+}
+
+int
 sl_xcpu_process_no_cs(void)
 {
 	int num = 0;
@@ -182,7 +202,15 @@ sl_xcpu_process_no_cs(void)
 		{
 			t = sl_thd_lkup(req.sl_xcpu_req_thd_wakeup.tid);
 			assert(t);
-			sl_thd_sched_wakeup_no_cs(t);
+			sl_thd_wakeup_no_cs_rm(t);
+			/* sl_thd_sched_wakeup_no_cs(t); */
+			break;
+		}
+		case SL_XCPU_THD_SET_TLS:
+		{
+			cos_thd_mod(req.sl_xcpu_req_set_tls.ci, 
+				    *(req.sl_xcpu_req_set_tls.tc), 
+				    req.sl_xcpu_req_set_tls.tlsaddr);
 			break;
 		}
 		case SL_XCPU_THD_ALLOC_EXT:

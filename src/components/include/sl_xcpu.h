@@ -17,6 +17,7 @@ typedef enum {
 	SL_XCPU_THD_DEALLOC, /* thread delete, need it? */
 	SL_XCPU_THD_SET_PARAM,
 	SL_XCPU_THD_WAKEUP,
+	SL_XCPU_THD_SET_TLS,
 } sl_xcpu_req_t;
 
 struct sl_xcpu_request {
@@ -61,6 +62,12 @@ struct sl_xcpu_request {
 		struct {
 			thdid_t                 tid;
 		} sl_xcpu_req_thd_wakeup;
+		struct {
+			struct cos_compinfo *ci;
+			thdcap_t *tc;
+			void *tlsaddr;
+		} sl_xcpu_req_set_tls;
+
 	};
 };
 
@@ -117,4 +124,6 @@ int sl_xcpu_aep_alloc_ext(cpuid_t cpu, struct cos_defcompinfo *dci, thdclosure_i
 int sl_xcpu_initaep_alloc(cpuid_t cpu, struct cos_defcompinfo *dci, struct sl_thd *sched_thd, int is_sched, int own_tcap, cos_channelkey_t key, struct sl_thd **ret_thd);
 int sl_xcpu_initaep_alloc_ext(cpuid_t cpu, struct cos_defcompinfo *dci, struct cos_defcompinfo *sched, int own_tcap, cos_channelkey_t key, sched_param_t params[]);
 int sl_xcpu_thd_wakeup(cpuid_t cpu, thdid_t tid);
+int sl_xcpu_thd_param_set(cpuid_t cpu, struct sl_thd **arg_thd, sched_param_t sp);
+int sl_xcpu_thd_set_tls(cpuid_t cpu, struct cos_compinfo *ci, thdcap_t *tc, void *tlsaddr);
 #endif /* SL_XCPU_H */

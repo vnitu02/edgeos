@@ -22,6 +22,12 @@ int global_first = 0;
 #define MAX_CONF_FILES 5
 char *conf_files[MAX_CONF_FILES];
 
+void
+click_block()
+{
+	nf_hyp_block();
+}
+
 int
 click_shmem(int packet_p, int packet_l, int port_l)
 {

@@ -27,7 +27,8 @@ struct eos_ring_node {
 struct eos_ring {
 	struct eos_ring_node *ring;  /* read only */
 	void *ring_phy_addr;
-	char pad1[2 * CACHE_LINE - 2*sizeof(struct eos_ring_node *)];
+	int coreid, thdid;
+	char pad1[2 * CACHE_LINE - 4*sizeof(struct eos_ring_node *)];
 	int free_head, pkt_cnt;        /* shared head */
 	char pad2[2 * CACHE_LINE - 2*sizeof(int)];
 	int mca_head;        /* mca access only */

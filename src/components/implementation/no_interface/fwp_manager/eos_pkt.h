@@ -47,19 +47,20 @@ eos_pkt_free(struct eos_ring *ring, void *pkt)
 	}
 }
 
-static inline void
+static inline int
 eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 {
 	struct eos_ring_node *rn;
 
 	rn = GET_RING_NODE(ring, ring->tail & EOS_RING_MASK);
-	assert(rn->state == PKT_EMPTY);
+	if (rn->state != PKT_EMPTY) return 1;
 	rn->pkt     = pkt;
 	rn->pkt_len = len;
 	rn->port    = port;
 	rn->state   = PKT_SENT_READY;
 	ring->tail++;
 	/* printc("S\n"); */
+	return 0;
 }
 
 static inline void *
@@ -84,7 +85,7 @@ eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
 		rn->pkt_len = 0;
 		rn->state   = PKT_EMPTY;
 		ring->tail++;
-		cos_faa(&(ring->pkt_cnt), -1);
+		/* cos_faa(&(ring->pkt_cnt), -1); */
 	}
 	return ret;
 }

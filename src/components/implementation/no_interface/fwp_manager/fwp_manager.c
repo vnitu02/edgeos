@@ -6,8 +6,10 @@
 #include "eos_ring.h"
 #include "eos_utils.h"
 #include "eos_mca.h"
+#include "eos_sched.h"
 #include "ninf.h"
 
+extern volatile int init_core_done;
 /* Assembly function for sinv from new component */
 extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
 
@@ -22,7 +24,6 @@ vaddr_t shmem_addr, heap_ptr;
 struct mem_seg *t_seg, *d_seg;
 unsigned long cinfo_offset;
 vaddr_t s_addr, shmem_inv_addr;
-struct sl_thd  *mca_thd;
 struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 static struct nf_chain chains[EOS_MAX_CHAIN_NUM];
 struct click_info chld_infos[EOS_MAX_NF_NUM];
@@ -80,6 +81,7 @@ fwp_ci_get(struct cobj_header *h, vaddr_t *comp_info)
  * it again (see the check in _fwp_fork_cont). Mapping TLS also need expand NF's page table.
  * 4. heap pointer of the forked NF should be updated to the post-init state.
  * 5. Some global memory of forked NF also need to be updated properly (mainly for shared ring address).
+ * 6. if we do not map shmem into template, and use post-iint template to calculate shmem addr, might simplify some problems.
  */
 static void
 _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info, 
@@ -202,7 +204,7 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
 
 static void
 _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
-	       vaddr_t allocated_data_seg, unsigned long comp_info_offset, int is_template)
+	       vaddr_t allocated_data_seg, unsigned long comp_info_offset, int coreid)
 {
 	struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
 	struct cos_aep_info *child_aep = cos_sched_aep_get(&chld_info->def_cinfo);
@@ -211,6 +213,7 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 	captblcap_t ckct;
 	pgtblcap_t  ckpt;
 	sinvcap_t sinv;
+	int r;
 
 	chld_info->booter_vaddr = allocated_data_seg;
 
@@ -225,11 +228,16 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 	child_cinfo->comp_cap = ckcc;
 
 	if (chld_info->nd_thd || chld_info->conf_file_idx != -1) {
-		chld_info->initaep = sl_thd_initaep_alloc(&chld_info->def_cinfo, NULL, 0, 0, 0);
-		assert(chld_info->initaep);
-		sl_thd_param_set(chld_info->initaep, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
-		if (is_template) _alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
-		else cos_thd_mod(parent_cinfo, child_aep->thd, (void *)heap_ptr); 
+		r = eos_initaep_alloc(coreid, &chld_info->def_cinfo, NULL, 0, 0, 0, &(chld_info->initaep));
+		assert(!r);
+		if (!coreid) {
+			eos_thd_param_set(coreid, &(chld_info->initaep), sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
+			_alloc_tls(parent_cinfo, child_cinfo, child_aep->thd, PAGE_SIZE);
+		} else {
+			eos_thd_param_set(coreid, &(chld_info->initaep), sched_param_pack(SCHEDP_PRIO_BLOCK, LOWEST_PRIORITY));
+			r = eos_thd_set_tls(coreid, parent_cinfo, &(chld_info->def_cinfo.sched_aep[coreid].thd), (void *)heap_ptr);
+			assert(!r);
+		}
 	} else {
 		chld_info->initaep = NULL;
 	}
@@ -252,7 +260,7 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
  */
 static void 
 fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg *data_seg,
-	 struct mem_seg *ring_seg, int conf_file_idx, unsigned long cinfo_offset, vaddr_t start_addr)
+	 struct mem_seg *ring_seg, int conf_file_idx, unsigned long cinfo_offset, vaddr_t start_addr, int coreid)
 {
 	struct cos_compinfo *parent_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
 	struct cos_compinfo *child_cinfo = cos_compinfo_get(&chld_info->def_cinfo);
@@ -264,7 +272,7 @@ fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg 
  
 	_fwp_fork(parent_cinfo, chld_info, text_seg, data_seg, ring_seg, conf_file_idx, start_addr);
 	allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, start_addr);
-	_fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset, conf_file_idx != -1);
+	_fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset, coreid);
 }
 
 void
@@ -279,10 +287,20 @@ fwp_chain_activate(struct nf_chain *chain)
 		new_nf = this_nf->next;
 		if (!new_nf || !new_nf->nd_ring) continue;
 		out1 = get_output_ring((void *)this_nf->shmem_addr);
-		in2 = get_input_ring((void *)new_nf->shmem_addr);
+		in2  = get_input_ring((void *)new_nf->shmem_addr);
 		conn = mca_conn_create(out1, in2);
 	}
 	/* TODO: activate threads */
+	list_for_each_nf(this_nf, chain) {
+		if (this_nf->nd_thd) {
+			assert(this_nf->initaep);
+			assert(this_nf->nd_ring);
+			in2         = get_input_ring((void *)this_nf->shmem_addr);
+			in2->coreid = this_nf->core_id;
+			in2->thdid  = sl_thd_thdid(this_nf->initaep);
+			eos_thd_wakeup(this_nf->core_id, sl_thd_thdid(this_nf->initaep));
+		}
+	}
 }
 
 static void *
@@ -330,6 +348,130 @@ fwp_allocate_shmem_sinv(struct cos_compinfo *src_comp, compcap_t dest_compcap)
 	assert(ret == 0);
 }
 
+/*
+ * actually allocate the chain NFs
+ */
+static struct nf_chain *
+fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
+{
+	struct click_info *this_nf, *new_nf, **last_nf;
+	int nfid, ncid, shmemid, last_shmem_id;
+	struct nf_chain *ret_chain;
+	struct mem_seg *nf_data_seg;
+
+	if (!is_template) {
+		ncid = next_chain_id++;
+		ret_chain = &chains[ncid];
+		*ret_chain = *chain;
+		ret_chain->chain_id = ncid;
+		last_nf = &(ret_chain->first_nf);
+
+		list_for_each_nf(this_nf, chain) {
+			nfid                  = next_nfid++;
+			new_nf                = &chld_infos[nfid];
+			*last_nf              = new_nf;
+			new_nf->conf_file_idx = -1;
+			new_nf->nf_id         = nfid;
+			new_nf->nd_thd        = this_nf->nd_thd;
+			new_nf->nd_ring       = this_nf->nd_ring;
+			new_nf->nd_sinv       = this_nf->nd_sinv;
+			new_nf->data_seg      = this_nf->data_seg;
+			new_nf->core_id       = coreid;
+			new_nf->next          = NULL;
+			ret_chain->last_nf    = new_nf;
+			last_nf               = &(new_nf->next);
+		}
+		chain = ret_chain;
+	}
+
+	list_for_each_nf(this_nf, chain) {
+		struct mem_seg mem_seg;
+
+		if (this_nf->nd_ring) shmemid = next_shmem_id++;
+		else shmemid = last_shmem_id;
+		last_shmem_id = shmemid;
+		this_nf->shmem_addr = (vaddr_t)fwp_get_shmem(shmemid);
+		mem_seg.addr = this_nf->shmem_addr;
+		mem_seg.size = FWP_MEMSEG_SIZE;
+		if (is_template) nf_data_seg = d_seg;
+		else nf_data_seg = this_nf->data_seg;
+		fwp_fork(this_nf, t_seg, nf_data_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr, coreid);
+	}
+
+	if (!is_template) {
+		list_for_each_nf(this_nf, chain) {
+			if (this_nf->nd_sinv) {
+				fwp_allocate_shmem_sinv(cos_compinfo_get(&(this_nf->def_cinfo)),
+							cos_compinfo_get(&(this_nf->next->def_cinfo))->comp_cap);
+			}
+		}
+		fwp_chain_put(chain, FWP_CHAIN_CLEANED, coreid);
+	}
+	return chain;
+}
+
+static void
+fwp_init(void)
+{
+	fwp_allocate_shmem(s_addr);
+}
+
+static void
+fwp_mgr_loop()
+{
+	while (1) {
+		/* TODO: clean up chain, put them back to cache */
+		/* TODO: if not enough fwp in cache, fork more */
+		/* fwp_clean_chain(&chains[0]); */;
+	}
+}
+
+static struct nf_chain *fwp_create_chain_bridge();
+static struct nf_chain *fwp_create_chain1(void); /* create a chain of two NFs linked by MCA */
+static struct nf_chain *fwp_create_chain2(int conf_file1, int conf_file2); /* create a chain of two NFs linked by shmem */
+
+void
+fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
+	 unsigned long comp_info_offset, vaddr_t sinv_next_call)
+{
+	struct nf_chain *chain;
+	int i, j;
+
+	t_seg = text_seg;
+	d_seg = data_seg;
+	cinfo_offset = comp_info_offset;
+	s_addr = start_addr;
+	shmem_inv_addr = sinv_next_call;
+
+	fwp_init();
+	cos_faa(&init_core_done, 1);
+	while (init_core_done != NF_MIN_CORE) {
+		__asm__ __volatile__("rep;nop": : :"memory");
+	}
+
+
+	/* chain = fwp_create_chain1(); */
+	/* chain = fwp_create_chain2(3, 4); */
+	chain = fwp_create_chain_bridge();
+	fwp_allocate_chain(chain, 1, 0);
+
+	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
+		for(j=0; j<2; j++) {
+			fwp_allocate_chain(chain, 0, i);
+		}
+	}
+
+	/* for(i=0; i<3; i++) { */
+	/* 	printc("dbg spin %d\n", i); */
+	/* 	__asm__ __volatile__("rep;nop": : :"memory"); */
+	/* } */
+	/* chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE); */
+	/* fwp_chain_activate(chain); */
+	fwp_mgr_loop();
+}
+
+
+
 /* create a chain with single bridge nf */
 static struct nf_chain *
 fwp_create_chain_bridge()
@@ -360,11 +502,9 @@ fwp_create_chain_bridge()
 	return ret_chain;
 }
 
-/*
- * create a chain of two NFs linked by MCA
- */
 static struct nf_chain *
-fwp_create_chain1(void){
+fwp_create_chain1(void)
+{
 	int nfid, ncid, shmemid, temid;
 	struct click_info *nf1, *nf2;
 	struct nf_chain *ret_chain;
@@ -402,9 +542,6 @@ fwp_create_chain1(void){
 	return ret_chain;
 }
 
-/*
- * create a chain of two NFs linked by shmem
- */
 static struct nf_chain *
 fwp_create_chain2(int conf_file1, int conf_file2)
 {
@@ -443,99 +580,4 @@ fwp_create_chain2(int conf_file1, int conf_file2)
 	ret_chain->last_nf = nf2;
 
 	return ret_chain;
-}
-
-/*
- * actually allocate the chain NFs
- */
-static struct nf_chain *
-fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
-{
-	struct click_info *this_nf, *new_nf, **last_nf;
-	int nfid, ncid, shmemid, last_shmem_id;
-	struct nf_chain *ret_chain;
-	struct mem_seg *nf_data_seg;
-
-	if (!is_template) {
-		ncid = next_chain_id++;
-		ret_chain = &chains[ncid];
-		*ret_chain = *chain;
-		ret_chain->chain_id = ncid;
-		last_nf = &(ret_chain->first_nf);
-
-		list_for_each_nf(this_nf, chain) {
-			nfid                  = next_nfid++;
-			new_nf                = &chld_infos[nfid];
-			*last_nf              = new_nf;
-			new_nf->conf_file_idx = -1;
-			new_nf->nf_id         = nfid;
-			new_nf->nd_thd        = this_nf->nd_thd;
-			new_nf->nd_ring       = this_nf->nd_ring;
-			new_nf->nd_sinv       = this_nf->nd_sinv;
-			new_nf->data_seg      = this_nf->data_seg;
-			new_nf->next          = NULL;
-			ret_chain->last_nf    = new_nf;
-			last_nf               = &(new_nf->next);
-		}
-		chain = ret_chain;
-	}
-
-	list_for_each_nf(this_nf, chain) {
-		struct mem_seg mem_seg;
-
-		if (this_nf->nd_ring) shmemid = next_shmem_id++;
-		else shmemid = last_shmem_id;
-		last_shmem_id = shmemid;
-		this_nf->shmem_addr = (vaddr_t)fwp_get_shmem(shmemid);
-		mem_seg.addr = this_nf->shmem_addr;
-		mem_seg.size = FWP_MEMSEG_SIZE;
-		if (is_template) nf_data_seg = d_seg;
-		else nf_data_seg = this_nf->data_seg;
-		fwp_fork(this_nf, t_seg, nf_data_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr);
-	}
-
-	if (!is_template) {
-		list_for_each_nf(this_nf, chain) {
-			if (this_nf->nd_sinv) {
-				fwp_allocate_shmem_sinv(cos_compinfo_get(&(this_nf->def_cinfo)),
-							cos_compinfo_get(&(this_nf->next->def_cinfo))->comp_cap);
-			}
-		}
-		fwp_chain_put(chain, FWP_CHAIN_CLEANED, coreid);
-	}
-	return chain;
-}
-
-static void
-fwp_init(void)
-{
-	struct cos_compinfo *boot_cinfo = cos_compinfo_get(cos_defcompinfo_curr_get());
-
-	mca_init(boot_cinfo);
-	mca_thd = sl_thd_alloc(mca_run, NULL);
-	sl_thd_param_set(mca_thd, sched_param_pack(SCHEDP_PRIO, LOWEST_PRIORITY));
-	fwp_allocate_shmem(s_addr);
-}
-
-void
-fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
-	 unsigned long comp_info_offset, vaddr_t sinv_next_call)
-{
-	struct nf_chain *chain;
-
-	t_seg = text_seg;
-	d_seg = data_seg;
-	cinfo_offset = comp_info_offset;
-	s_addr = start_addr;
-	shmem_inv_addr = sinv_next_call;
-
-	fwp_init();
-
-	/* chain = fwp_create_chain1(); */
-	/* chain = fwp_create_chain2(3, 4); */
-	chain = fwp_create_chain_bridge();
-	fwp_allocate_chain(chain, 1, 0);
-       
-       cos_thd_switch(sl_thd_thdcap(chld_infos[2].initaep));
-       //sl_sched_loop();
 }

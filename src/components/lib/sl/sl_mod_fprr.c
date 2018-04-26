@@ -83,15 +83,19 @@ sl_mod_thd_param_set(struct sl_thd_policy *t, sched_param_type_t type, unsigned 
 	switch (type) {
 	case SCHEDP_PRIO:
 	{
+		assert(v < SL_FPRR_NPRIOS);
+		t->priority = v;
+		sl_thd_setprio(sl_mod_thd_get(t), t->priority);
 		ps_list_rem_d(t); 	/* if we're already on a list, and we're updating priority */
 		ps_list_head_append_d(&threads[cpu][v], t);
+		break;
 	}
 	case SCHEDP_PRIO_BLOCK:
 	{
 		assert(v < SL_FPRR_NPRIOS);
 		t->priority = v;
 		sl_thd_setprio(sl_mod_thd_get(t), t->priority);
-
+		sl_mod_thd_get(t)->state = SL_THD_BLOCKED;
 		break;
 	}
 	case SCHEDP_WINDOW:

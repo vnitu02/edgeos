@@ -11,6 +11,7 @@ enum llboot_cntl {
        NF_SHMEM_GET,
        NF_CHECKPOINT,
        NF_CLEAN,
+       NF_BLOCK,
 };
 
 static inline int
@@ -47,6 +48,12 @@ static inline int
 nf_hyp_clean(void)
 {
        return cos_sinv(BOOT_CAPTBL_HYP_SINV_CAP, 0, NF_CLEAN, 0, 0);
+}
+
+static inline int
+nf_hyp_block(void)
+{
+       return cos_sinv(BOOT_CAPTBL_HYP_SINV_CAP, 0, NF_BLOCK, 0, 0);
 }
 
 #endif /* LLBOOT_H */
