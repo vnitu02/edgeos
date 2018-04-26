@@ -139,10 +139,12 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
 	allocated_data_seg = (vaddr_t) cos_page_bump_allocn(parent_cinfo, data_seg->size);
 	assert(allocated_data_seg);
 	memcpy((void *)allocated_data_seg, (void *) data_seg->addr, data_seg->size);
+	printc("dbg alisa seg from addr %x sz %d to %x\n", (void *) data_seg->addr, data_seg->size, allocated_data_seg);
 
 	/*
 	 * Alias the data segment in the new component
 	 */
+	printc("dbg click data addr %x\n", start_addr + text_offset);
 	data_sz = d_seg->size;
 	heap_sz = data_seg->size - data_sz;
 	for (offset = 0; offset < data_sz; offset += PAGE_SIZE) {
@@ -157,6 +159,7 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
 		}
 		child_cinfo->vas_frontier = heap_ptr + offset - data_sz;
 	}
+	printc("dbg click data end addr %x data sz %d hep %d\n", start_addr + text_offset+offset, data_sz, heap_sz);
 
 	return allocated_data_seg;
 }

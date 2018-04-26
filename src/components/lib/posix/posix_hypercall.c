@@ -19,7 +19,7 @@ cos_syscall_t cos_syscalls[SYSCALLS_NUM];
 static void
 libc_syscall_override(cos_syscall_t fn, int syscall_num)
 {
-       printc("Overriding syscall %d\n", syscall_num);
+       /* printc("Overriding syscall %d\n", syscall_num); */
        cos_syscalls[syscall_num] = fn;
 }
 
@@ -197,7 +197,7 @@ cos_syscall_handler(int syscall_num, long a, long b, long c, long d, long e, lon
        assert(syscall_num <= SYSCALLS_NUM);
        /* printc("Making syscall %d\n", syscall_num); */
        if (!cos_syscalls[syscall_num]){
-              printc("WARNING: Component %ld calling unimplemented system call %d\n", cos_spd_id(), syscall_num);
+              /* printc("WARNING: Component %ld calling unimplemented system call %d\n", cos_spd_id(), syscall_num); */
               //assert(0);
               return 0;
        } else {

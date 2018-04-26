@@ -92,18 +92,19 @@ ninf_proc_new_flow(struct rte_mbuf *mbuf, struct pkt_ipv4_5tuple *key, uint32_t 
 	struct eos_ring *rx_out;
 	struct nf_chain *new_chain;
 
-	printc("dbg ninf rx proc new flow\n");
 	cid = ninf_flow2_core(mbuf, key, rss);
-	/* TODO: activate threads in chain (fork) */
 	new_chain = fwp_chain_get(FWP_CHAIN_CLEANED, cid);
 	rx_out = ninf_setup_new_chain(new_chain);
 	ninf_flow_tbl_add(key, rss, rx_out);
+	printc("dbg rx new flwo va %x pa %x\n", mbuf->buf_addr, mbuf->buf_physaddr);
+}
 
 static inline struct eos_ring *
 ninf_get_nf_ring(struct rte_mbuf *mbuf)
 {
 #ifdef NO_FLOW_ISOLATION
 	if (!global_chain) {
+		printc("dbg new flow\n");
 		global_chain = fwp_chain_get(FWP_CHAIN_CLEANED, 0);
 		assert(global_chain);
 		global_rx_out = ninf_setup_new_chain(global_chain);

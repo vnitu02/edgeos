@@ -59,7 +59,7 @@ eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 	rn->port    = port;
 	rn->state   = PKT_SENT_READY;
 	ring->tail++;
-	/* printc("dbg pkt send ring %p pkt %p tail %d sta %d\n", ring, rn, ring->tail & EOS_RING_MASK, rn->state); */
+	/* printc("S\n"); */
 }
 
 static inline void *
@@ -74,7 +74,7 @@ eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
 		ring->tail++;
 	}
 	if (rn->state == PKT_RECV_READY) {
-		/* printc("dbg pkt recv ring %p pkt %p tail %d sta %d\n", ring, rn, ring->tail & EOS_RING_MASK, rn->state); */
+		/* printc("R\n"); */
 		assert(rn->pkt);
 		assert(rn->pkt_len);
 		ret         = rn->pkt;

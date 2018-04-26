@@ -60,7 +60,6 @@ mca_process(struct mca_conn *conn)
 	fh  = cos_faa(&(dst->free_head), 1);
 	rn  = GET_RING_NODE(dst, fh & EOS_RING_MASK);
 	if (rn->state != PKT_FREE) return;
-	/* printc("dbg 1 mca stat %d free %d\n", rn->state, PKT_FREE); */
 	assert(rn->pkt);
 	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;
@@ -68,6 +67,7 @@ mca_process(struct mca_conn *conn)
 	sn->state   = PKT_SENT_DONE;
 	rn->state   = PKT_RECV_READY;
 	src->mca_head++;
+	/* printc("M\n"); */
 	fh = cos_faa(&(dst->pkt_cnt), 1);
 }
 

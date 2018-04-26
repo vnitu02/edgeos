@@ -73,6 +73,7 @@ cos_init(void *args)
        * (fork from template)
        */
        if (conf_file_idx == -1) {
+	       printc("dbg clkc conf %d shem %x\n", conf_file_idx, shmem_addr);
               run_driver();
        } else {
               setup_conf_files();

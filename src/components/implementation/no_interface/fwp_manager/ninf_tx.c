@@ -104,6 +104,7 @@ ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 		tx_batch_mbufs[i]->data_off     = 0;
 	}
 	nb_tx = rte_eth_tx_burst(port, 0, tx_batch_mbufs, cnt);
+	printc("%d #\n", port);
 	assert(nb_tx == cnt);
 	burst_cnt[port] = 0;
 }
@@ -154,6 +155,7 @@ ninf_tx_process(struct eos_ring *nf_ring)
 		if (sent->state != PKT_SENT_READY) break ;
 		assert(sent->pkt);
 		assert(sent->pkt_len);
+		/* printc("T\n"); */
 		ninf_tx_add_pkt(nf_ring, sent);
 		nf_ring->mca_head++;
 		ret++;
