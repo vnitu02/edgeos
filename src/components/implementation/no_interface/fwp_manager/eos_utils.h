@@ -4,9 +4,12 @@
 #include <cos_kernel_api.h>
 #include <cos_types.h>
 
+/* Assume 16 cores in total, and 4 of them reserved for system  */
 #define EOS_MAX_NF_TYPE_NUM    10 /* number of chain type, need such number of templates */
-#define EOS_MAX_NF_NUM         300   /* This also includes the booter and the initial component*/
-#define EOS_MAX_CHAIN_NUM 100
+#define EOS_MAX_CHAIN_NUM_PER_CORE 128
+#define EOS_MAX_CHAIN_NUM (EOS_MAX_CHAIN_NUM_PER_CORE * (NUM_CPU - 4))
+#define EOS_MAX_NF_NUM_PER_CORE   (1 * EOS_MAX_CHAIN_NUM_PER_CORE) /* chain length * #chains */
+#define EOS_MAX_NF_NUM    (2 + EOS_MAX_NF_NUM_PER_CORE * (NUM_CPU - 4))        /* This also includes the booter and the initial component*/
 #define EOS_MAX_FLOW_NUM  100 	/* number of client flow, should equal to number of chain if we have a chain per flow */
 /*we suppose having one shared sgment per chain*/
 #define EOS_MAX_MEMSEGS_NUM EOS_MAX_CHAIN_NUM

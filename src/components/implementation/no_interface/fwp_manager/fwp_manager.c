@@ -129,8 +129,7 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
 
 	/*
 	 * Alias the text segment in the new component
-	 */ 
-	printc("dbg click start addr %x\n", start_addr);
+	 */
 	for (offset = 0; offset < text_seg->size; offset += PAGE_SIZE) {
 		cos_mem_alias_at(child_cinfo, start_addr + offset, 
 				 parent_cinfo, text_seg->addr + offset);
@@ -143,12 +142,10 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
 	allocated_data_seg = (vaddr_t) cos_page_bump_allocn(parent_cinfo, data_seg->size);
 	assert(allocated_data_seg);
 	memcpy((void *)allocated_data_seg, (void *) data_seg->addr, data_seg->size);
-	printc("dbg alisa seg from addr %x sz %d to %x\n", (void *) data_seg->addr, data_seg->size, allocated_data_seg);
 
 	/*
 	 * Alias the data segment in the new component
 	 */
-	printc("dbg click data addr %x\n", start_addr + text_offset);
 	data_sz = d_seg->size;
 	heap_sz = data_seg->size - data_sz;
 	for (offset = 0; offset < data_sz; offset += PAGE_SIZE) {
@@ -363,6 +360,7 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 
 	if (!is_template) {
 		ncid = next_chain_id++;
+		assert(ncid < EOS_MAX_CHAIN_NUM);
 		ret_chain = &chains[ncid];
 		*ret_chain = *chain;
 		ret_chain->chain_id = ncid;
@@ -370,6 +368,7 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 
 		list_for_each_nf(this_nf, chain) {
 			nfid                  = next_nfid++;
+			assert(nfid < EOS_MAX_NF_NUM);
 			new_nf                = &chld_infos[nfid];
 			*last_nf              = new_nf;
 			new_nf->conf_file_idx = -1;
@@ -391,6 +390,7 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 
 		if (this_nf->nd_ring) shmemid = next_shmem_id++;
 		else shmemid = last_shmem_id;
+		assert(shmemid < EOS_MAX_NF_NUM);
 		last_shmem_id = shmemid;
 		this_nf->shmem_addr = (vaddr_t)fwp_get_shmem(shmemid);
 		mem_seg.addr = this_nf->shmem_addr;
@@ -458,7 +458,8 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	fwp_allocate_chain(chain, 1, 0);
 
 	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
-		for(j=0; j<2; j++) {
+		for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
+			printc("core %d j %d tot %d\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE);
 			fwp_allocate_chain(chain, 0, i);
 		}
 	}

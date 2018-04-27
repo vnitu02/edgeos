@@ -104,7 +104,7 @@ ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 		tx_batch_mbufs[i]->data_off     = 0;
 	}
 	nb_tx = rte_eth_tx_burst(port, 0, tx_batch_mbufs, cnt);
-	printc("%d #\n", port);
+	/* printc("%d #\n", port); */
 	assert(nb_tx == cnt);
 	burst_cnt[port] = 0;
 }
