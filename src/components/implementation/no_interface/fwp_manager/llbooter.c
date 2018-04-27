@@ -449,7 +449,6 @@ fwp_prepare_and_test(vaddr_t start_addr, spdid_t spdid, vaddr_t sinv_next_call)
        struct mem_seg text, data;
        struct comp_cap_info *spdinfo = boot_spd_compcapinfo_get(spdid);
 
-
        text.addr = spdinfo->vaddr_mapped_in_booter;
        text.size = end_rodata[spdid] - spdinfo->vaddr_mapped_in_booter;
        data.addr = round_up_to_page(end_rodata[spdid]);

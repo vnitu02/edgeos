@@ -24,4 +24,4 @@ conf5.o: conf_file5
 	ld -r -b binary -o conf5.o conf_file5
 
 include ../../Makefile.subsubdir
-MANDITORY_LIB=simple_stklib.o
+MANDITORY_LIB=simple_stklib_NF.o
