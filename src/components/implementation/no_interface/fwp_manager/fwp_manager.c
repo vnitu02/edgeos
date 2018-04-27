@@ -105,9 +105,11 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
 	cos_compinfo_init(fork_cinfo, ckpt, ckct, 0, heap_ptr,
 			  BOOT_CAPTBL_FREE, parent_cinfo_l);
 
-	size = heap_ptr - start_addr;
-	printc("size: %p - %p\n", heap_ptr, start_addr);
-	if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, size)) BUG();
+	if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, start_addr, text_seg->size + data_seg->size)) BUG();
+	addr = round_to_pgd_page(ring_seg->addr);
+	size = ring_seg->size + (ring_seg->addr - addr);
+	if (!cos_pgtbl_intern_alloc(parent_cinfo_l, ckpt, addr, size)) BUG();
+
 	for (dest = 0; dest < ring_seg->size; dest += PAGE_SIZE) {
 		cos_mem_alias_at(fork_cinfo, (ring_seg->addr + dest), parent_cinfo_l, (ring_seg->addr + dest));
 	}

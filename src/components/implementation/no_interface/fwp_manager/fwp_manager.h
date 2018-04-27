@@ -6,7 +6,7 @@
 
 #include "eos_ring.h"
 
-#define FWP_MEMSEG_SIZE (round_up_to_page(FWP_RINGS_SIZE) + EOS_RING_SIZE * EOS_PKT_MAX_SZ)
+#define FWP_MEMSEG_SIZE (round_up_to_page(FWP_RINGS_SIZE) + round_up_to_page(EOS_RING_SIZE * EOS_PKT_MAX_SZ))
 
 /* Ensure this is the same as what is in sl_mod_fprr.c */
 #define SL_FPRR_NPRIOS 32
