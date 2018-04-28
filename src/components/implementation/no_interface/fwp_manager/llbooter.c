@@ -498,7 +498,7 @@ cos_init(void)
 			ninf_tx_loop();
 			assert(0);
 		default:
-			printc("nf sl_sched_loop core %d\n", cur_coreid);
+			/* printc("nf sl_sched_loop core %d\n", cur_coreid); */
 			sl_sched_loop();
 			assert(0);
 		}

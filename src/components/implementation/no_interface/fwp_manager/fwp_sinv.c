@@ -27,7 +27,6 @@ fwp_malloc(struct click_info *ci, size_t size)
 		dst_pg = cos_mem_alias(chld_info, boot_info, (src_seg + i));
 		assert(dst_pg);
 	}
-	printc("dbg clikc malloc booter %x addr %x sz %d %d\n", src_seg, vaddr, size, size/PAGE_SIZE);
 
 	return vaddr;
 }
@@ -75,7 +74,7 @@ fwp_checkpoint(void *token, unsigned int nfid)
 	child_info->data_seg->addr = addr;
 	child_info->data_seg->size = vm_range;
 
-	printc("\tCheckpointing click component's %d data %lx (range:%04x)\n", nfid, child_info->data_seg->addr, child_info->data_seg->size);
+	/* printc("\tCheckpointing click component's %d data %lx (range:%04x)\n", nfid, child_info->data_seg->addr, child_info->data_seg->size); */
 
 	/*
 	 *        * switch to the booter component

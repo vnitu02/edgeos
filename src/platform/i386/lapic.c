@@ -142,7 +142,7 @@ lapic_tscdeadline_supported(void)
 	u32_t a, b, c, d;
 
 	chal_cpuid(6, &a, &b, &c, &d);
-	if (a & (1 << 1)) printk("LAPIC Timer runs at Constant Rate!!\n");
+	/* if (a & (1 << 1)) printk("LAPIC Timer runs at Constant Rate!!\n"); */
 
 	chal_cpuid(1, &a, &b, &c, &d);
 	if (c & (1 << 24)) return 1;
@@ -398,7 +398,7 @@ lapic_timer_init(void)
 	u32_t a, b, c, d;
 
 	chal_cpuid(1, &a, &b, &c, &d);
-	if (c & (1 << 21)) printk("LAPIC:  processor supports x2APIC, IGNORED.\n");
+	/* if (c & (1 << 21)) printk("LAPIC:  processor supports x2APIC, IGNORED.\n"); */
 
 	if (!lapic_tscdeadline_supported()) {
 		printk("LAPIC: TSC-Deadline Mode not supported! Configuring Oneshot Mode!\n");
@@ -415,7 +415,7 @@ lapic_timer_init(void)
 			lapic_cycs_thresh      = LAPIC_ONESHOT_THRESH;
 		}
 	} else {
-		printk("LAPIC: Configuring TSC-Deadline Mode!\n");
+		/* printk("LAPIC: Configuring TSC-Deadline Mode!\n"); */
 
 		/* Set the mode and vector */
 		lapic_write_reg(LAPIC_TIMER_LVT_REG, HW_LAPIC_TIMER | LAPIC_TSCDEADLINE_MODE);
@@ -502,7 +502,7 @@ smp_boot_all_ap(volatile int *cores_ready)
 		lapic_write_reg(LAPIC_ESR, 0);
 		lapic_read_reg(LAPIC_ESR);
 
-		printk("\nBooting AP %d with apic_id %d\n", i, apicids[i]);
+		/* printk("\nBooting AP %d with apic_id %d\n", i, apicids[i]); */
 		/* Application Processor (AP) startup sequence: */
 		/* ...make sure that we pass this core's stack */
 		*stackpatch = &stack + ((PAGE_SIZE * i) + (PAGE_SIZE - STK_INFO_OFF));

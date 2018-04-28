@@ -230,6 +230,7 @@ __capid_captbl_check_expand(struct cos_compinfo *ci)
 		captblcap = frontier;
 	} else {
 		/* Recursive call: can recur maximum 2 times. */
+		printc("DBG WARNING possible deadlock!!!!!!\n");
 		captblcap = __capid_bump_alloc(meta, CAP_CAPTBL);
 		assert(captblcap);
 	}

@@ -160,7 +160,7 @@ _alias_click(struct cos_compinfo *parent_cinfo, struct cos_compinfo *child_cinfo
 		}
 		child_cinfo->vas_frontier = heap_ptr + offset - data_sz;
 	}
-	printc("dbg click data end addr %x data sz %d hep %d\n", start_addr + text_offset+offset, data_sz, heap_sz);
+	/* printc("dbg click data end addr %x data sz %d hep %d\n", start_addr + text_offset+offset, data_sz, heap_sz); */
 
 	return allocated_data_seg;
 }
@@ -172,7 +172,7 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
 {
 	int ret;
 
-	printc("\tCopying pgtbl, captbl, component capabilities\n");
+	/* printc("\tCopying pgtbl, captbl, component capabilities\n"); */
 	ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_CT, parent_cinfo_l, ckct);
 	assert(ret == 0);
 
@@ -330,7 +330,7 @@ fwp_allocate_shmem(vaddr_t start_addr)
 
 	shmem_addr = (vaddr_t)cos_page_bump_allocn(boot_cinfo, EOS_MAX_MEMSEGS_NUM * FWP_MEMSEG_SIZE);
 	heap_ptr = round_up_to_pgd_page(shmem_addr + EOS_MAX_MEMSEGS_NUM * FWP_MEMSEG_SIZE);
-	printc("shmem addr %lx\n", round_up_to_pgd_page(start_addr + 1));
+	printc("dbg empty %x shmem addr %lx\n", empty_page, shmem_addr);
 }
 
 void
@@ -459,10 +459,11 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 
 	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
 		for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
-			printc("core %d j %d tot %d\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE);
+			printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier);
 			fwp_allocate_chain(chain, 0, i);
 		}
 	}
+	printc("dbg chain alloca done\n");
 
 	/* for(i=0; i<3; i++) { */
 	/* 	printc("dbg spin %d\n", i); */
