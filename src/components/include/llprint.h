@@ -14,16 +14,6 @@ cos_llprint(char *s, int len)
 	cos_serial_putb(s, len);
 }
 
-static int
-prints(char *s)
-{
-	size_t len = strlen(s);
-
-	cos_print(s, len); /* use syscall to print, so it prints to vga as well */
-
-	return len;
-}
-
 static int  __attribute__((format(printf, 1, 2)))
 printc(char *fmt, ...)
 {
@@ -37,6 +27,17 @@ printc(char *fmt, ...)
 	cos_llprint(s, ret);
 
 	return ret;
+}
+
+static int
+prints(char *s)
+{
+	return printc("%s", s);
+	/* size_t len = strlen(s); */
+
+	/* cos_print(s, len); /\* use syscall to print, so it prints to vga as well *\/ */
+
+	/* return len; */
 }
 
 typedef enum {
