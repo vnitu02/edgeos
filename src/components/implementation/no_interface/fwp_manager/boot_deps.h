@@ -10,6 +10,7 @@
 #include <ps.h>
 #include <bitmap.h>
 
+#define EOS_UNTYPE_MEM_SZ (890 * (1 << 20))
 /* Assembly function for sinv from new component */
 extern word_t hypercall_entry_rets_inv(spdid_t cur, int op, word_t arg1, word_t arg2, word_t *ret2, word_t *ret3);
 
@@ -169,15 +170,15 @@ boot_compinfo_init(spdid_t spdid, captblcap_t *ct, pgtblcap_t *pt, u32_t heap_st
 	 * if this is a capmgr, let it manage its share (ideally rest of system memory) of memory.
 	 * if there is no capmgr in the system, allow every component to manage its memory.
 	 */
-	if (!capmgr_spdid || (capmgr_spdid && spdid && spdid == capmgr_spdid)) {
-		pgtblcap_t utpt;
-		unsigned long mem_sz = capmgr_spdid ? CAPMGR_MIN_UNTYPED_SZ : LLBOOT_NEWCOMP_UNTYPED_SZ;
+	/* if (!capmgr_spdid || (capmgr_spdid && spdid && spdid == capmgr_spdid)) { */
+	/* 	pgtblcap_t utpt; */
+	/* 	unsigned long mem_sz = capmgr_spdid ? CAPMGR_MIN_UNTYPED_SZ : LLBOOT_NEWCOMP_UNTYPED_SZ; */
 
-		utpt = cos_pgtbl_alloc(boot_info);
-		assert(utpt);
-		cos_meminfo_init(&(compinfo->mi), BOOT_MEM_KM_BASE, mem_sz, utpt);
-		if (!capmgr_spdid) cos_meminfo_alloc(compinfo, BOOT_MEM_KM_BASE, mem_sz);
-	}
+	/* 	utpt = cos_pgtbl_alloc(boot_info); */
+	/* 	assert(utpt); */
+	/* 	cos_meminfo_init(&(compinfo->mi), BOOT_MEM_KM_BASE, mem_sz, utpt); */
+	/* 	if (!capmgr_spdid) cos_meminfo_alloc(compinfo, BOOT_MEM_KM_BASE, mem_sz); */
+	/* } */
 }
 
 static void
@@ -395,7 +396,7 @@ boot_bootcomp_init(void)
 	struct cos_compinfo    *boot_info = boot_spd_compinfo_curr_get();
 	struct comp_sched_info *bootsi    = boot_spd_comp_schedinfo_curr_get();
 
-	cos_meminfo_init(&(boot_info->mi), BOOT_MEM_KM_BASE, COS_MEM_KERN_PA_SZ, BOOT_CAPTBL_SELF_UNTYPED_PT);
+	cos_meminfo_init(&(boot_info->mi), BOOT_MEM_KM_BASE, EOS_UNTYPE_MEM_SZ, BOOT_CAPTBL_SELF_UNTYPED_PT);
 	cos_defcompinfo_init();
        sl_init(SL_MIN_PERIOD_US);
 	bootsi->flags |= COMP_FLAG_SCHED;

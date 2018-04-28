@@ -97,6 +97,7 @@ kern_memory_setup(struct multiboot *mb, u32_t mboot_magic)
 		u8_t *                     mod_end  = glb_memlayout.mod_end;
 		u8_t *                     mem_addr = chal_pa2va((paddr_t)mem->addr);
 		unsigned long              mem_len  = (mem->len > COS_PHYMEM_MAX_SZ ? COS_PHYMEM_MAX_SZ : mem->len); /* maximum allowed */
+		unsigned long sz;
 
 		printk("\t- %d (%s): [%08llx, %08llx) sz = %ldMB + %ldKB\n", i, mem->type == 1 ? "Available" : "Reserved ", mem->addr,
 		       mem->addr + mem->len, MEM_MB_ONLY((u32_t)mem->len), MEM_KB_ONLY((u32_t)mem->len));
@@ -105,7 +106,8 @@ kern_memory_setup(struct multiboot *mb, u32_t mboot_magic)
 
 		/* is this the memory region we'll use for component memory? */
 		if (mem->type == 1 && mod_end >= mem_addr && mod_end < (mem_addr + mem_len)) {
-			unsigned long sz = (mem_addr + mem_len) - mod_end;
+			assert(glb_memlayout.mod_start >= mem_addr);
+			sz = (glb_memlayout.mod_start + mem_len) - mod_end;
 
 			glb_memlayout.kmem_end = mem_addr + mem_len;
 			printk("\t  memory usable at boot time: %lx (%ld MB + %ld KB)\n", sz, MEM_MB_ONLY(sz),

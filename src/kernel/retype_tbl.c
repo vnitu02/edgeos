@@ -24,6 +24,7 @@ mod_ref_cnt(void *pa, const int op, const int type_check)
 	struct retype_entry *retype_entry;
 	union refcnt_atom    local_u;
 
+	FIXED_UMEM_PA_BOUNDARY_CHECK();
 	PA_BOUNDARY_CHECK();
 
 	idx = GET_MEM_IDX(pa);
@@ -79,6 +80,7 @@ mod_mem_type(void *pa, const mem_type_t type)
 	struct retype_info_glb *glb_retype_info;
 
 	assert(pa); /* cannot be NULL: kernel image takes that space */
+	FIXED_UMEM_PA_BOUNDARY_CHECK();
 	PA_BOUNDARY_CHECK();
 
 	idx = GET_MEM_IDX(pa);

@@ -74,6 +74,13 @@ extern struct retype_info_glb glb_retype_tbl[N_MEM_SETS];
 
 #define COS_KMEM_BOUND (chal_kernel_mem_pa + PAGE_SIZE * COS_KERNEL_MEMORY)
 
+/* some memory (larger than COS_MEM_BOUND) is fixed for user memory, no need to retype*/
+#define FIXED_UMEM_PA_BOUNDARY_CHECK()                                                                            \
+	do {                                                                                           \
+		if ((u32_t)pa >= COS_MEM_BOUND)			\
+			return 0;					\
+	} while (0)
+
 /* physical address boundary check */
 #define PA_BOUNDARY_CHECK()                                                                            \
 	do {                                                                                           \
