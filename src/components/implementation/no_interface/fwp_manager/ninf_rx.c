@@ -77,6 +77,7 @@ ninf_setup_new_chain(struct nf_chain *chain)
 
 	nf_in_ring = get_input_ring((void *)(chain->first_nf->shmem_addr));
 	rx_out = cos_page_bump_allocn(CURR_CINFO(), round_up_to_page(FWP_RINGS_SIZE));
+	assert(rx_out);
 	eos_rings_init((void *)rx_out);
 	nf_out = get_output_ring((void *)(chain->last_nf->shmem_addr));
 	ninf_tx_add_ring(nf_out);
