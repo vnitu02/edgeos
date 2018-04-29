@@ -96,8 +96,8 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
 	unsigned long size;
 
 	//printc("forking new click component\n");
-	ckct = cos_captbl_alloc(parent_cinfo_l);
-	assert(ckct);
+	ckct = cos_captbl_alloc_at(parent_cinfo_l, BOOT_CAPTBL_FIX_CAPTBL);
+	assert(ckct == BOOT_CAPTBL_FIX_CAPTBL);
 
 	ckpt = cos_pgtbl_alloc(parent_cinfo_l);
 	assert(ckpt);
@@ -179,8 +179,7 @@ copy_caps(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *fork_cinfo,
 	ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_PT, parent_cinfo_l, ckpt);
 	assert(ret == 0);
 
-	ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_COMP, parent_cinfo_l,
-			     ckcc);
+	ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_SELF_COMP, parent_cinfo_l, ckcc);
 	assert(ret == 0);
 
 	ret = cos_cap_cpy_at(fork_cinfo, BOOT_CAPTBL_HYP_SINV_CAP, parent_cinfo_l, sinv);
@@ -221,9 +220,9 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
 	ckct = child_cinfo->captbl_cap;
 	ckpt = child_cinfo->pgtbl_cap;
-	ckcc = cos_comp_alloc(parent_cinfo, ckct, ckpt,
-			      (vaddr_t) ci->cos_upcall_entry);
-	assert(ckcc);
+	ckcc = cos_comp_alloc_at(parent_cinfo, ckct, ckpt,
+				 (vaddr_t) ci->cos_upcall_entry, BOOT_CAPTBL_FIX_COMP);
+	assert(ckcc == BOOT_CAPTBL_FIX_COMP);
 	child_cinfo->comp_cap = ckcc;
 
 	if (chld_info->nd_thd || chld_info->conf_file_idx != -1) {
@@ -242,8 +241,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 	}
 
 	/* Create sinv capability from Userspace to Booter components */
-	sinv = cos_sinv_alloc(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)nf_entry_rets_inv, (vaddr_t)chld_info);
-	assert(sinv > 0);
+	sinv = cos_sinv_alloc_at(parent_cinfo, parent_cinfo->comp_cap, (vaddr_t)nf_entry_rets_inv, (vaddr_t)chld_info, BOOT_CAPTBL_FIX_SINV);
+	assert(sinv == BOOT_CAPTBL_FIX_SINV);
 
 	if (chld_info->initaep) {
 		copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, sl_thd_thdcap(chld_info->initaep));
@@ -252,6 +251,14 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 	}
 
 	if (chld_info->conf_file_idx != -1) cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
+}
+
+static void
+_fwp_for_drop_cap(struct cos_compinfo *parent_cinfo)
+{
+	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_SINV);
+	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_CAPTBL);
+	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_COMP);
 }
 
 /*
@@ -272,6 +279,7 @@ fwp_fork(struct click_info *chld_info, struct mem_seg *text_seg, struct mem_seg 
 	_fwp_fork(parent_cinfo, chld_info, text_seg, data_seg, ring_seg, conf_file_idx, start_addr);
 	allocated_data_seg = _alias_click(parent_cinfo, child_cinfo, text_seg, data_seg, start_addr);
 	_fwp_fork_cont(parent_cinfo, chld_info, allocated_data_seg, cinfo_offset, coreid);
+	_fwp_for_drop_cap(parent_cinfo);
 }
 
 void
@@ -341,9 +349,9 @@ fwp_allocate_shmem_sinv(struct cos_compinfo *src_comp, compcap_t dest_compcap)
 	int ret;
 
 	/*allocate the sinv capability for next_call*/
-	next_call_sinvcap = cos_sinv_alloc(boot_cinfo, dest_compcap, shmem_inv_addr, 0);
-	assert(next_call_sinvcap > 0);
-	ret = cos_cap_cpy_at(src_comp, BOOT_CAPTBL_NEXT_SINV_CAP,  boot_cinfo, next_call_sinvcap);
+	next_call_sinvcap = cos_sinv_alloc_at(boot_cinfo, dest_compcap, shmem_inv_addr, 0, BOOT_CAPTBL_FIX_SINV);
+	assert(next_call_sinvcap == BOOT_CAPTBL_FIX_SINV);
+	ret = cos_cap_move_at(src_comp, BOOT_CAPTBL_NEXT_SINV_CAP,  boot_cinfo, next_call_sinvcap);
 	assert(ret == 0);
 }
 

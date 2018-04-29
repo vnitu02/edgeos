@@ -384,7 +384,7 @@ static inline int
 cap_move(struct captbl *t, capid_t cap_to, capid_t capin_to, capid_t cap_from, capid_t capin_from)
 {
 	struct cap_header *ctto, *ctfrom;
-	int                ret;
+	int                sz, ret;
 	cap_t              cap_type;
 
 	ctfrom = captbl_lkup(t, cap_from);
@@ -393,8 +393,24 @@ cap_move(struct captbl *t, capid_t cap_to, capid_t capin_to, capid_t cap_from, c
 	cap_type = ctfrom->type;
 
 	if (cap_type == CAP_CAPTBL) {
-		/* no cap copy needed yet. */
-		return -EPERM;
+		u32_t old_v, l;
+		cap_t type;
+
+		ctfrom = captbl_lkup(((struct cap_captbl *)ctfrom)->captbl, capin_from);
+		if (unlikely(!ctfrom)) return -ENOENT;
+
+		type = ctfrom->type;
+		if (cap_to) {
+			sz   = __captbl_cap2bytes(type);
+
+			ctto = __cap_capactivate_pre(t, cap_to, capin_to, type, &ret);
+			if (!ctto) return -EINVAL;
+			memcpy(ctto->post, ctfrom->post, sz - sizeof(struct cap_header));
+			__cap_capactivate_post(ctto, type);
+		}
+		ctfrom = captbl_lkup(t, cap_from);
+		cap_capdeactivate((struct cap_captbl *)ctfrom, capin_from, type, 0);
+		ret = 0;
 	} else if (cap_type == CAP_PGTBL) {
 		unsigned long *f, old_v, *moveto, old_v_to;
 		u32_t          flags;
@@ -1320,6 +1336,15 @@ static int __attribute__((noinline)) composite_syscall_slowpath(struct pt_regs *
 			capid_t dest_cap    = __userregs_get3(regs);
 
 			ret = cap_cpy(ct, dest_captbl, dest_cap, from_captbl, from_cap);
+			break;
+		}
+		case CAPTBL_OP_MOVE: {
+			capid_t from_captbl = cap;
+			capid_t from_cap    = __userregs_get1(regs);
+			capid_t dest_captbl = __userregs_get2(regs);
+			capid_t dest_cap    = __userregs_get3(regs);
+
+			ret = cap_move(ct, dest_captbl, dest_cap, from_captbl, from_cap);
 			break;
 		}
 		case CAPTBL_OP_CONS: {

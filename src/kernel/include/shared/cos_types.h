@@ -80,6 +80,7 @@ typedef enum {
 
 typedef enum {
 	CAPTBL_OP_CPY,
+	CAPTBL_OP_MOVE,
 	CAPTBL_OP_CONS,
 	CAPTBL_OP_DECONS,
 	CAPTBL_OP_THDACTIVATE,

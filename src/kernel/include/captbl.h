@@ -412,6 +412,52 @@ err:
 	return ret;
 }
 
+static inline int
+captbl_clear(struct captbl *t, capid_t cap, cap_t type, livenessid_t lid)
+{
+	struct cap_header *p, *h;
+	struct cap_header  l, o;
+	int                ret = 0, off;
+
+	if (unlikely(cap >= __captbl_maxid())) cos_throw(err, -EINVAL);
+	p = __captbl_lkupan(t, cap, CAPTBL_DEPTH, NULL);
+
+	if (unlikely(!p)) cos_throw(err, -EPERM);
+	if (p != __captbl_getleaf((void *)p, NULL)) cos_throw(err, -EINVAL);
+	if (p->type != type) cos_throw(err, -EINVAL);
+
+	h   = (struct cap_header *)CT_MSK(p, CACHELINE_ORDER);
+	off = (struct cap_min *)p - (struct cap_min *)h;
+	assert(off >= 0 && off < CAP_HEAD_AMAP_SZ);
+	l = o = *h;
+
+	/* Do we want RO to prevent deletions? */
+	if (unlikely(l.flags & CAP_FLAG_RO)) cos_throw(err, -EPERM);
+	if (unlikely(!(l.amap & (1 << off)))) cos_throw(err, -ENOENT);
+
+	if (h == p) {
+		l.liveness_id = lid;
+		l.type        = CAP_FREE;
+	} else {
+		p->liveness_id = lid;
+		p->type        = CAP_FREE;
+	}
+	cos_mem_fence();
+
+	/* new map, removing the current allocation */
+	l.amap &= (~(1 << off)) & ((1 << CAP_HEAD_AMAP_SZ) - 1);
+	if (l.amap == 0) {
+		/* no active allocations... */
+		/* we can't change l.size yet. still need it to check
+		 * quiescence. */
+		l.type = CAP_FREE;
+	}
+
+	if (CTSTORE(h, &l, &o)) cos_throw(err, -EEXIST); /* commit */
+err:
+	return ret;
+}
+
 static inline u32_t
 captbl_maxdepth(void)
 {

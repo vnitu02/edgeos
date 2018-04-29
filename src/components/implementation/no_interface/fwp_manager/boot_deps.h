@@ -397,8 +397,10 @@ boot_bootcomp_init(void)
 	struct comp_sched_info *bootsi    = boot_spd_comp_schedinfo_curr_get();
 
 	cos_meminfo_init(&(boot_info->mi), BOOT_MEM_KM_BASE, EOS_UNTYPE_MEM_SZ, BOOT_CAPTBL_SELF_UNTYPED_PT);
-	cos_defcompinfo_init();
-       sl_init(SL_MIN_PERIOD_US);
+	cos_defcompinfo_init_ext(BOOT_CAPTBL_SELF_INITTCAP_BASE, BOOT_CAPTBL_SELF_INITTHD_BASE,
+				 BOOT_CAPTBL_SELF_INITRCV_BASE, BOOT_CAPTBL_SELF_PT, BOOT_CAPTBL_SELF_CT,
+				 BOOT_CAPTBL_SELF_COMP, (vaddr_t)cos_get_heap_ptr(), BOOT_CAPTBL_FIX_MAX);
+	sl_init(SL_MIN_PERIOD_US);
 	bootsi->flags |= COMP_FLAG_SCHED;
 }
 

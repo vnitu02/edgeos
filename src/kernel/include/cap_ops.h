@@ -67,7 +67,7 @@ cap_capdeactivate(struct cap_captbl *ct, capid_t capin, cap_t type, livenessid_t
 	if (unlikely(!ct)) return -ENOENT;
 	if (unlikely(ct->h.type != CAP_CAPTBL)) return -EINVAL;
 
-	return captbl_del(ct->captbl, capin, type, lid);
+	return captbl_clear(ct->captbl, capin, type, lid);
 }
 
 static inline int

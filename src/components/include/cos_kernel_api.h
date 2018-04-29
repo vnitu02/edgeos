@@ -55,6 +55,12 @@ typedef capid_t captblcap_t;
 typedef capid_t pgtblcap_t;
 typedef capid_t hwcap_t;
 
+#define BOOT_CAPTBL_FIX_SINV BOOT_CAPTBL_FREE
+#define BOOT_CAPTBL_FIX_CAPTBL (BOOT_CAPTBL_FIX_SINV + 4)
+#define BOOT_CAPTBL_FIX_COMP (BOOT_CAPTBL_FIX_CAPTBL+ 4)
+#define BOOT_CAPTBL_FIX_PTE (BOOT_CAPTBL_FIX_COMP + 4)
+#define BOOT_CAPTBL_FIX_MAX (BOOT_CAPTBL_FIX_PTE + 4)
+
 /* Memory source information */
 struct cos_meminfo {
 	vaddr_t    untyped_ptr, umem_ptr, kmem_ptr;
@@ -194,5 +200,11 @@ int     cos_hw_cycles_per_usec(hwcap_t hwc);
 int     cos_hw_cycles_thresh(hwcap_t hwc);
 
 capid_t cos_capid_bump_alloc(struct cos_compinfo *ci, cap_t cap);
+
+capid_t cos_cap_drop(struct cos_compinfo *srcci, capid_t srccap);
+int     cos_cap_move_at(struct cos_compinfo *dstci, capid_t dstcap, struct cos_compinfo *srcci, capid_t srccap);
+sinvcap_t cos_sinv_alloc_at(struct cos_compinfo *srcci, compcap_t dstcomp, vaddr_t entry, invtoken_t token, capid_t cap);
+captblcap_t cos_captbl_alloc_at(struct cos_compinfo *ci, capid_t cap);
+compcap_t cos_comp_alloc_at(struct cos_compinfo *ci, captblcap_t ctc, pgtblcap_t ptc, vaddr_t entry, capid_t cap);
 
 #endif /* COS_KERNEL_API_H */
