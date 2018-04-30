@@ -20,6 +20,7 @@ extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2
 long next_nfid = 2, next_chain_id = 0, next_shmem_id = 0, next_template_id = 0;
 
 vaddr_t shmem_addr, heap_ptr;
+unsigned long long start, end;
 
 struct mem_seg *t_seg, *d_seg;
 unsigned long cinfo_offset;
@@ -27,6 +28,10 @@ vaddr_t s_addr, shmem_inv_addr;
 struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 static struct nf_chain chains[EOS_MAX_CHAIN_NUM];
 struct click_info chld_infos[EOS_MAX_NF_NUM];
+
+#define COMP_CAP_SLOTS 100
+static unsigned int idx = 0;
+static compcap_t ckcc_slots[COMP_CAP_SLOTS];
 
 static void
 _alloc_tls(struct cos_compinfo *parent_cinfo_l, struct cos_compinfo *chld_cinfo_l, thdcap_t tc, size_t tls_size)
@@ -220,10 +225,21 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
 	ckct = child_cinfo->captbl_cap;
 	ckpt = child_cinfo->pgtbl_cap;
-	ckcc = cos_comp_alloc_at(parent_cinfo, ckct, ckpt,
-				 (vaddr_t) ci->cos_upcall_entry, BOOT_CAPTBL_FIX_COMP);
-	assert(ckcc == BOOT_CAPTBL_FIX_COMP);
-	child_cinfo->comp_cap = ckcc;
+
+       if (idx < COMP_CAP_SLOTS){
+              ckcc = cos_comp_alloc(parent_cinfo, ckct, ckpt,
+                                          (vaddr_t) ci->cos_upcall_entry);
+              assert(ckcc);
+              ckcc_slots[idx] = ckcc;
+       } else {
+	       cos_cap_drop(parent_cinfo, ckcc_slots[idx % COMP_CAP_SLOTS]);
+              ckcc = cos_comp_alloc_at(parent_cinfo, ckct, ckpt, (vaddr_t) ci->cos_upcall_entry, 
+                                          ckcc_slots[idx % COMP_CAP_SLOTS]);
+              assert(ckcc == ckcc_slots[idx % COMP_CAP_SLOTS]);
+       } 
+       *(volatile compcap_t *)(&(child_cinfo->comp_cap)) = ckcc;
+       idx++;
+       ps_cc_barrier();
 
 	if (chld_info->nd_thd || chld_info->conf_file_idx != -1) {
 		r = eos_initaep_alloc(coreid, &chld_info->def_cinfo, NULL, 0, 0, 0, &(chld_info->initaep));
@@ -250,7 +266,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 		copy_caps(parent_cinfo, child_cinfo, ckct, ckpt, ckcc, sinv, 0);
 	}
 
-	if (chld_info->conf_file_idx != -1) cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
+	//if (chld_info->conf_file_idx != -1) cos_thd_switch(sl_thd_thdcap(chld_info->initaep));
+       //while (!ps_load(&(chld_info->initaep))){}
 }
 
 static void
@@ -258,7 +275,6 @@ _fwp_for_drop_cap(struct cos_compinfo *parent_cinfo)
 {
 	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_SINV);
 	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_CAPTBL);
-	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_COMP);
 }
 
 /*
@@ -289,6 +305,8 @@ fwp_chain_activate(struct nf_chain *chain)
 	struct click_info *this_nf, *new_nf;
 	struct mca_conn *conn;
 	(void)conn;
+
+       start = ps_tsc(); 
 
 	list_for_each_nf(this_nf, chain) {
 		new_nf = this_nf->next;
@@ -465,10 +483,12 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	chain = fwp_create_chain_bridge();
 	fwp_allocate_chain(chain, 1, 0);
 
-	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
-		for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
-			printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier);
-			fwp_allocate_chain(chain, 0, i);
+int dt = 0;
+       for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
+	       for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
+                     dt = j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE;
+			if (dt % 10 == 0)printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, dt, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier);
+			fwp_allocate_chain(chain, 1, i);
 		}
 	}
 	printc("dbg chain alloca done\n");
@@ -477,8 +497,15 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	/* 	printc("dbg spin %d\n", i); */
 	/* 	__asm__ __volatile__("rep;nop": : :"memory"); */
 	/* } */
-	/* chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE); */
-	/* fwp_chain_activate(chain); */
+/*activate:
+	chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE);
+	fwp_chain_activate(chain);
+loop:
+       if (!ps_load(&start)){
+              goto activate;
+       } else {
+              goto loop;
+       }*/
 	fwp_mgr_loop();
 }
 

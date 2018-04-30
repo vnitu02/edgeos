@@ -6,7 +6,7 @@
 
 /* Assume 16 cores in total, and 4 of them reserved for system  */
 #define EOS_MAX_NF_CHAIN_TYPE_NUM  10 /* number of nf chain templates */
-#define EOS_MAX_CHAIN_NUM_PER_CORE 188
+#define EOS_MAX_CHAIN_NUM_PER_CORE 1000
 #define EOS_MAX_CHAIN_NUM          ((EOS_MAX_CHAIN_NUM_PER_CORE * (NUM_CPU - 4)) + EOS_MAX_NF_CHAIN_TYPE_NUM)
 #define EOS_MAX_NF_TYPE_NUM        10 /* number of nf type, need such number of templates */
 #define EOS_MAX_NF_NUM_PER_CORE    (1 * EOS_MAX_CHAIN_NUM_PER_CORE) /* chain length * #chains */

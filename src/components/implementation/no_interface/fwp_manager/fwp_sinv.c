@@ -1,6 +1,7 @@
 #ifndef FWP_SINV_H
 #define FWP_SINV_H
 
+
 #include <nf_hypercall.h>
 #include <sl.h>
 #include "eos_utils.h"
@@ -9,6 +10,7 @@
 extern struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 
 struct cos_compinfo *boot_spd_compinfo_get(spdid_t spdid);
+extern unsigned long long start, end;
 
 static vaddr_t
 fwp_malloc(struct click_info *ci, size_t size)
@@ -148,6 +150,13 @@ nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
 		sl_thd_yield(0);
 		break;
 	}
+	case NF_MEASURE_ACTIVATE:
+        {
+              end = ps_tsc(); 
+              printc("cycles: %lld\n", end - start);
+              start = 0;
+              break;
+        }
 	default:
 	{
 		assert(0);

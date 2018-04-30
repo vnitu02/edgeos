@@ -71,6 +71,7 @@ cos_init(void *args)
 {
        struct click_init init_data;
 
+       nf_hyp_measure_activate();
        nf_hyp_confidx_get(&conf_file_idx);
        nf_hyp_get_shmem_addr(&shmem_addr);
 
@@ -79,7 +80,7 @@ cos_init(void *args)
        * (fork from template)
        */
        if (conf_file_idx == -1) {
-	       printc("dbg clkc conf %d shem %x\n", conf_file_idx, shmem_addr);
+	       //printc("dbg clkc conf %d shem %x\n", conf_file_idx, shmem_addr);
               run_driver();
        } else {
               setup_conf_files();
