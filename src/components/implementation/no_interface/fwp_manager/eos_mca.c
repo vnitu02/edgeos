@@ -67,11 +67,13 @@ mca_process(struct mca_conn *conn)
 	sn->state   = PKT_SENT_DONE;
 	rn->state   = PKT_RECV_READY;
 	src->mca_head++;
+	src->pkt_cnt--;
+	fh = cos_faa(&(get_output_ring((void *)dst)->pkt_cnt), 1);
 	/* printc("M\n"); */
 	/* fh = cos_faa(&(dst->pkt_cnt), 1); */
-	/* if (fh == 1) { */
-	/* 	eos_thd_wakeup(dst->coreid, dst->thdid); */
-	/* } */
+	if (!fh) {
+		eos_thd_wakeup(dst->coreid, dst->thdid);
+	}
 }
 
 static inline void
