@@ -160,6 +160,7 @@ ninf_tx_process(struct eos_ring *nf_ring)
 		nf_ring->mca_head++;
 		ret++;
 	}
+	if (ret) cos_faa(&(nf_ring->pkt_cnt), -ret);
 	ninf_tx_out_batch();
 	return ret;
 }

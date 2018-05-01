@@ -381,7 +381,7 @@ sl_thd_wakeup_no_cs_rm(struct sl_thd *t)
 {
 	assert(t);
 
-	assert(t->state == SL_THD_BLOCKED || t->state == SL_THD_BLOCKED_TIMEOUT);
+	/* assert(t->state == SL_THD_BLOCKED || t->state == SL_THD_BLOCKED_TIMEOUT); */
 	t->state = SL_THD_RUNNABLE;
 	sl_mod_wakeup(sl_mod_thd_policy_get(t));
 	t->rcv_suspended = 0;
@@ -532,7 +532,15 @@ sl_timeout_period(microsec_t period)
 /* engage space heater mode */
 void
 sl_idle(void *d)
-{ while (1) ; }
+{
+	while (1) {
+		sl_cs_enter();
+		if (ck_ring_size(sl__ring_curr()) != 0) {
+			sl_xcpu_process_no_cs();
+		}
+		sl_cs_exit();
+	}
+}
 
 /* call from the user? */
 static void

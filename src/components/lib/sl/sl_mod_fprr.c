@@ -48,9 +48,10 @@ sl_mod_block(struct sl_thd_policy *t)
 void
 sl_mod_wakeup(struct sl_thd_policy *t)
 {
-	assert(t->priority <= SL_FPRR_PRIO_LOWEST && ps_list_singleton_d(t));
+	assert(t->priority <= SL_FPRR_PRIO_LOWEST);
 
-	ps_list_head_append_d(&threads[cos_cpuid()][t->priority], t);
+	ps_list_rem_d(t);
+	ps_list_head_add_d(&threads[cos_cpuid()][t->priority], t);
 }
 
 void
