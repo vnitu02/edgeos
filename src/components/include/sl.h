@@ -511,7 +511,8 @@ sl_cs_exit_schedule_nospin_arg(struct sl_thd *to)
 	assert(sl_thd_is_runnable(t));
 	sl_cs_exit();
 
-       /* printc("schedule %d\n", sl_thd_thdid(t)); */
+       if (cos_cpuid() == 4)
+              printc("schedule %d\n", sl_thd_thdid(t));
 	ret = sl_thd_activate(t, tok);
 	/*
 	 * dispatch failed with -EPERM because tcap associated with thread t does not have budget.

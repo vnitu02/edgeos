@@ -153,8 +153,10 @@ nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
 	case NF_MEASURE_ACTIVATE:
         {
               end = ps_tsc(); 
-              printc("cycles: %lld\n", end - start);
+              //printc("cycles: %lld\n", end - start);
               start = 0;
+              ps_cc_barrier();
+		sl_thd_block(0);
               break;
         }
 	default:

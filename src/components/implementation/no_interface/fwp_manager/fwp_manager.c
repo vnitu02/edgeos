@@ -20,7 +20,7 @@ extern word_t nf_entry_rets_inv(invtoken_t cur, int op, word_t arg1, word_t arg2
 long next_nfid = 2, next_chain_id = 0, next_shmem_id = 0, next_template_id = 0;
 
 vaddr_t shmem_addr, heap_ptr;
-unsigned long long start, end;
+volatile unsigned long long start, end;
 
 struct mem_seg *t_seg, *d_seg;
 unsigned long cinfo_offset;
@@ -306,8 +306,6 @@ fwp_chain_activate(struct nf_chain *chain)
 	struct mca_conn *conn;
 	(void)conn;
 
-       start = ps_tsc(); 
-
 	list_for_each_nf(this_nf, chain) {
 		new_nf = this_nf->next;
 		if (!new_nf || !new_nf->nd_ring) continue;
@@ -323,6 +321,7 @@ fwp_chain_activate(struct nf_chain *chain)
 			in2         = get_input_ring((void *)this_nf->shmem_addr);
 			in2->coreid = this_nf->core_id;
 			in2->thdid  = sl_thd_thdid(this_nf->initaep);
+                     start = ps_tsc(); 
 			eos_thd_wakeup(this_nf->core_id, sl_thd_thdid(this_nf->initaep));
 		}
 	}
@@ -421,9 +420,12 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 		this_nf->shmem_addr = (vaddr_t)fwp_get_shmem(shmemid);
 		mem_seg.addr = this_nf->shmem_addr;
 		mem_seg.size = FWP_MEMSEG_SIZE;
-		if (is_template) nf_data_seg = d_seg;
+		if (1 || is_template) nf_data_seg = d_seg;
 		else nf_data_seg = this_nf->data_seg;
+              //start = ps_tsc();
 		fwp_fork(this_nf, t_seg, nf_data_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr, coreid);
+              //end = ps_tsc();
+              //printc("cycles: %lld\n", end - start);
 	}
 
 	if (!is_template) {
@@ -433,9 +435,9 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 							cos_compinfo_get(&(this_nf->next->def_cinfo))->comp_cap);
 			}
 		}
-		fwp_chain_put(chain, FWP_CHAIN_CLEANED, coreid);
+              fwp_chain_put(chain, FWP_CHAIN_CLEANED, coreid);
 	}
-	return chain;
+       return chain;
 }
 
 static void
@@ -481,31 +483,26 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	/* chain = fwp_create_chain1(); */
 	/* chain = fwp_create_chain2(3, 4); */
 	chain = fwp_create_chain_bridge();
-	fwp_allocate_chain(chain, 1, 0);
+	//fwp_allocate_chain(chain, 1, 0);
 
 int dt = 0;
        for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
 	       for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
-                     dt = j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE;
+                     dt = j*(i-NF_MIN_CORE-1);
 			if (dt % 10 == 0)printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, dt, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier);
-			fwp_allocate_chain(chain, 1, i);
+			//printc("core %d tot %d\n", i, dt);
+			fwp_allocate_chain(chain, 0, i);
 		}
 	}
 	printc("dbg chain alloca done\n");
 
-	/* for(i=0; i<3; i++) { */
-	/* 	printc("dbg spin %d\n", i); */
-	/* 	__asm__ __volatile__("rep;nop": : :"memory"); */
-	/* } */
-/*activate:
-	chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE);
-	fwp_chain_activate(chain);
-loop:
-       if (!ps_load(&start)){
-              goto activate;
-       } else {
-              goto loop;
-       }*/
+       for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
+              for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
+                     chain = fwp_chain_get(FWP_CHAIN_CLEANED, i);
+                     fwp_chain_activate(chain);
+                     while (ps_load(&start)){}
+              }
+       }
 	fwp_mgr_loop();
 }
 

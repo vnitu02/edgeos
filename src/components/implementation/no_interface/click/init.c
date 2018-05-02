@@ -70,6 +70,8 @@ void
 cos_init(void *args)
 {
        struct click_init init_data;
+       //unsigned long long start, end;
+       //start = ps_tsc(); 
 
        nf_hyp_measure_activate();
        nf_hyp_confidx_get(&conf_file_idx);
@@ -88,6 +90,10 @@ cos_init(void *args)
               init_data.nf_id = cos_spd_id();
 
               click_initialize(&init_data);
+
+              //end = ps_tsc(); 
+              //printc("cycles: %lld\n", end - start);
+
               nf_hyp_checkpoint(init_data.nf_id);
               //run the configuration file once
               run_driver();

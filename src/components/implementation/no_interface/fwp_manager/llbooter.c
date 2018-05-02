@@ -505,7 +505,8 @@ cos_init(void)
 		default:
 			/* printc("nf sl_sched_loop core %d\n", cur_coreid); */
 			sl_sched_loop();
-			assert(0);
+			//while (1) {sl_thd_block(0);}
+                     assert(0);
 		}
 	}
 
