@@ -534,11 +534,12 @@ void
 sl_idle(void *d)
 {
 	while (1) {
-		sl_cs_enter();
 		if (ck_ring_size(sl__ring_curr()) != 0) {
+		       sl_cs_enter();
 			sl_xcpu_process_no_cs();
+		       sl_cs_exit();
+                     sl_thd_yield(0);
 		}
-		sl_cs_exit();
 	}
 }
 

@@ -29,6 +29,8 @@ struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 static struct nf_chain chains[EOS_MAX_CHAIN_NUM];
 struct click_info chld_infos[EOS_MAX_NF_NUM];
 
+volatile unsigned long long activate_cycles[MAX_NUM_THREADS];
+
 #define COMP_CAP_SLOTS 100
 static unsigned int idx = 0;
 static compcap_t ckcc_slots[COMP_CAP_SLOTS];
@@ -425,7 +427,7 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
               //start = ps_tsc();
 		fwp_fork(this_nf, t_seg, nf_data_seg, &mem_seg, this_nf->conf_file_idx, cinfo_offset, s_addr, coreid);
               //end = ps_tsc();
-              //printc("cycles: %lld\n", end - start);
+              //printc("fork cycles: %lld\n", end - start);
 	}
 
 	if (!is_template) {
@@ -503,6 +505,8 @@ int dt = 0;
                      while (ps_load(&start)){}
               }
        }
+       for (i=0; i<MAX_NUM_THREADS; i++)
+              printc("activate_cycles: %lld\n", activate_cycles[i]);
 	fwp_mgr_loop();
 }
 
@@ -581,6 +585,7 @@ fwp_create_chain1(void)
 static struct nf_chain *
 fwp_create_chain2(int conf_file1, int conf_file2)
 {
+
 	int nfid, ncid, shmemid;
 	struct click_info *nf1, *nf2;
 	struct nf_chain *ret_chain;

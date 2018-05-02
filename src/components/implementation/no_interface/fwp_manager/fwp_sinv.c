@@ -11,6 +11,7 @@ extern struct mem_seg templates[EOS_MAX_NF_TYPE_NUM];
 
 struct cos_compinfo *boot_spd_compinfo_get(spdid_t spdid);
 extern unsigned long long start, end;
+extern unsigned long long activate_cycles[MAX_NUM_THREADS];
 
 static vaddr_t
 fwp_malloc(struct click_info *ci, size_t size)
@@ -152,7 +153,10 @@ nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
 	}
 	case NF_MEASURE_ACTIVATE:
         {
-              end = ps_tsc(); 
+              struct click_info *ckinfo = (struct click_info *)token;
+
+              end = ps_tsc();
+              activate_cycles[ckinfo->nf_id-2] = end - start;
               //printc("cycles: %lld\n", end - start);
               start = 0;
               ps_cc_barrier();
