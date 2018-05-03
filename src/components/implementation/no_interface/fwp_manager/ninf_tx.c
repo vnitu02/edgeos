@@ -4,6 +4,7 @@
 #include "ninf.h"
 #include "ninf_util.h"
 
+#define TX_NUM_MBUFS 4096
 #define TX_MBUF_DATA_SIZE 0
 #define TX_MBUF_SIZE (TX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 #define NINF_TX_BATCH 2
@@ -24,7 +25,7 @@ static struct tx_ring tx_rings[EOS_MAX_CHAIN_NUM];
 static int batch_cnt, burst_cnt[NUM_NIC_PORTS];
 static struct tx_pkt_batch send_batch[NUM_NIC_PORTS][BURST_SIZE];
 static struct rte_mempool *tx_mbuf_pool;
-static struct rte_mbuf *tx_batch_mbufs[BURST_SIZE];
+static struct rte_mbuf *tx_batch_mbufs[BURST_SIZE] = {NULL};
 
 static inline void
 __ring_push(struct tx_ring **h, struct tx_ring *n)
@@ -63,7 +64,7 @@ ninf_tx_init()
 	tx = NULL;
 	batch_cnt = 0;
 	for(i=0; i<NUM_NIC_PORTS; i++) burst_cnt[i] = 0;
-	tx_mbuf_pool = rte_pktmbuf_pool_create("TX_MBUF_POOL", NUM_MBUFS * NUM_NIC_PORTS, 0, 0, TX_MBUF_SIZE, -1);
+	tx_mbuf_pool = rte_pktmbuf_pool_create("TX_MBUF_POOL", TX_NUM_MBUFS * NUM_NIC_PORTS, 0, 0, TX_MBUF_SIZE, -1);
 }
 
 struct tx_ring *
@@ -89,7 +90,8 @@ extern struct rte_mempool *rx_mbuf_pool;
 static inline void
 ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 {
-	int i, cnt, nb_tx;
+	int i, cnt, nb_tx, left;
+	struct rte_mbuf **mbatch;
 
 	cnt = burst_cnt[port];
 	if (!cnt) return ;
@@ -103,9 +105,16 @@ ninf_tx_nf_send_burst(struct tx_pkt_batch *batch, int port)
 		tx_batch_mbufs[i]->data_len     = (uint16_t)batch[i].rn->pkt_len;
 		tx_batch_mbufs[i]->data_off     = 0;
 	}
-	nb_tx = rte_eth_tx_burst(port, 0, tx_batch_mbufs, cnt);
-	/* printc("%d #\n", port); */
-	assert(nb_tx == cnt);
+
+	left = cnt;
+	mbatch = tx_batch_mbufs;
+	while (left > 0) {
+		nb_tx = rte_eth_tx_burst(port, 1, mbatch, left);
+		left -= nb_tx;
+		mbatch += nb_tx;
+	}
+	/* printc("#\n"); */
+	/* assert(nb_tx == cnt); */
 	burst_cnt[port] = 0;
 }
 
@@ -128,7 +137,7 @@ ninf_tx_add_pkt(struct eos_ring *nf_ring, struct eos_ring_node *node)
 	}
 	send_batch[port][cnt].rn       = node;
 	send_batch[port][cnt].phy_addr = get_phy_addr_ring_node(nf_ring, node);
-	burst_cnt[port]++;
+	burst_cnt[port] = cnt + 1;
 }
 
 static inline void
@@ -145,17 +154,25 @@ ninf_tx_out_batch()
 }
 
 static inline int
+
+static inline int
 ninf_tx_process(struct eos_ring *nf_ring)
 {
-	int ret = 0;
+	int ret = 0, r;
 	struct eos_ring_node *sent;
 	
 	while (1) {
 		sent = GET_RING_NODE(nf_ring, nf_ring->mca_head & EOS_RING_MASK);
+		if (sent->state == PKT_TXING) {
+			ninf_tx_out_batch();
+			/* r = ninf_tx_clean(); */
+			/* printc("dbg tx overflow tx \n"); */
+		}
 		if (sent->state != PKT_SENT_READY) break ;
 		assert(sent->pkt);
 		assert(sent->pkt_len);
 		/* printc("T\n"); */
+		sent->state = PKT_TXING;
 		ninf_tx_add_pkt(nf_ring, sent);
 		nf_ring->mca_head++;
 		ret++;

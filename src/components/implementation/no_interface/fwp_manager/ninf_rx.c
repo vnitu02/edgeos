@@ -18,6 +18,8 @@ static struct rte_mbuf *rx_batch_mbufs[BURST_SIZE];
 static int major_core_id, minor_core_id;
 static struct nf_chain *global_chain = NULL;
 static struct eos_ring *global_rx_out;
+static struct eos_ring *fix_rx_outs[EOS_MAX_FLOW_NUM] = {NULL};
+static int chain_idx = 0;
 
 static inline int
 ninf_pkt_collect(struct eos_ring *r)
@@ -26,9 +28,10 @@ ninf_pkt_collect(struct eos_ring *r)
 	n = GET_RING_NODE(r, r->head & EOS_RING_MASK);
 	if (n->state == PKT_SENT_DONE) {
 		rte_pktmbuf_free(DPDK_PKT2MBUF(n->pkt));
+		n->state   = PKT_EMPTY;
+		ps_cc_barrier();
 		n->pkt     = NULL;
 		n->pkt_len = 0;
-		n->state   = PKT_EMPTY;
 		r->head++;
 		return 1;
 	}
@@ -98,7 +101,6 @@ ninf_proc_new_flow(struct rte_mbuf *mbuf, struct pkt_ipv4_5tuple *key, uint32_t 
 	new_chain = fwp_chain_get(FWP_CHAIN_CLEANED, cid);
 	rx_out = ninf_setup_new_chain(new_chain);
 	ninf_flow_tbl_add(key, rss, rx_out);
-	printc("dbg rx new flwo va %x pa %x\n", mbuf->buf_addr, mbuf->buf_physaddr);
 }
 
 static inline struct eos_ring *
@@ -141,8 +143,16 @@ ninf_rx_proc_mbuf(struct rte_mbuf *mbuf, int in_port)
 	}
 	ninf_ring = ninf_get_nf_ring(mbuf);
 	assert(ninf_ring);
-	ninf_pkt_collect(ninf_ring);
-	eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf), IN2OUT_PORT(in_port));
+	do {
+		ninf_pkt_collect(ninf_ring);
+		r = eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf), IN2OUT_PORT(in_port));
+		if (dbg_c && (dbg_c++) % 5000000 == 0) printc("P\n");
+	} while (r == -ECOLLET);
+	/* drop pkts */
+	if (r) {
+		/* printc("D %d\n", ninf_ring->tail & EOS_RING_MASK); */
+		rte_pktmbuf_free(mbuf);
+	}
 }
 
 static inline void
@@ -157,9 +167,11 @@ ninf_rx_proc_batch(struct rte_mbuf **mbufs, int nbuf, int in_port)
 void
 ninf_rx_loop()
 {
-	int tot_rx = 0, port;
+	int tot_rx = 0, port, i=0;
 
 	while (1) {
+		if (fix_rx_outs[i]) ninf_pkt_collect(fix_rx_outs[i]);
+		i = (i+1) % EOS_MAX_FLOW_NUM;
 		for(port=0; port<NUM_NIC_PORTS; port++) {
 			const u16_t nb_rx = rte_eth_rx_burst(port, 0, rx_batch_mbufs, BURST_SIZE);
 			tot_rx += nb_rx;

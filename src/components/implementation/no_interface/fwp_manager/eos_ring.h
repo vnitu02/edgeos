@@ -14,8 +14,10 @@ typedef enum {
 	PKT_EMPTY = 0,
 	PKT_FREE,
 	PKT_RECV_READY,
+	PKT_RECV_DONE,
 	PKT_SENT_READY,
 	PKT_SENT_DONE,
+	PKT_TXING,
 } pkt_states_t;
 
 struct eos_ring_node {

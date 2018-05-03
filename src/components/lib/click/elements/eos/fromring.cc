@@ -96,16 +96,18 @@ bool
 FromRing::run_task(Task *)
 {
        Packet *p;
-       int len, c = 0, port;
+       int len, c = 0, port, err;
        void *pkt;
        struct eos_ring *input_ring = get_input_ring((void *)shmem_addr);
        struct eos_ring *ouput_ring = get_output_ring((void *)shmem_addr);
 
-       eos_pkt_collect(input_ring, ouput_ring);
-       pkt = eos_pkt_recv(input_ring, &len, &port);
+       pkt = eos_pkt_recv(input_ring, &len, &port, &err);
        while (!pkt) {
-	       click_block();
-	       pkt = eos_pkt_recv(input_ring, &len, &port);
+	       if (err == -EBLOCK) click_block();
+	       else if (err == -ECOLLET) eos_pkt_collect(input_ring, ouput_ring);
+	       // if (err == -EBLOCK) { printc("F\n"); click_block();}
+	       // if (err == -ECOLLET) printc("F\n");
+	       pkt = eos_pkt_recv(input_ring, &len, &port, &err);
        }
        p = Packet::make((unsigned char*) pkt, len, NULL, NULL, port);
        output(0).push(p);

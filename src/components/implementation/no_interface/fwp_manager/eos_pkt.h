@@ -4,6 +4,8 @@
 #include <util.h>
 #include "eos_ring.h"
 
+#define EBLOCK  1
+#define ECOLLET 2
 
 #ifndef ps_cc_barrier
 #define ps_cc_barrier() __asm__ __volatile__ ("" : : : "memory")
@@ -59,7 +61,11 @@ eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 	struct eos_ring_node *rn;
 
 	rn = GET_RING_NODE(ring, ring->tail & EOS_RING_MASK);
-	if (rn->state != PKT_EMPTY) return 1;
+	assert(rn);
+	if (!rn) printc("dbg pkt sent\n");
+	if (rn->state == PKT_SENT_DONE) return -ECOLLET;
+	else if (rn->state != PKT_EMPTY) {printc("dbg drop %d \n", rn->state); return -EBLOCK;}
+	/* else if (rn->state != PKT_EMPTY) return -EBLOCK; */
 	rn->pkt     = pkt;
 	rn->pkt_len = len;
 	rn->port    = port;
@@ -71,7 +77,7 @@ eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 }
 
 static inline void *
-eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
+eos_pkt_recv(struct eos_ring *ring, int *len, int *port, int *err)
 {
 	struct eos_ring_node *rn;
 	void *ret = NULL;
@@ -91,9 +97,17 @@ eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
 		rn->pkt     = NULL;
 		rn->pkt_len = 0;
 		ps_cc_barrier();
-		rn->state   = PKT_EMPTY;
+		rn->state   = PKT_RECV_DONE;
 		ring->tail++;
 		/* cos_faa(&(ring->pkt_cnt), -1); */
+	} else if (rn->state == PKT_RECV_DONE) {
+		/* printc("! tail %d stat %d\n", ring->tail, rn->state); */
+		/* printc("!\n"); */
+		*err = -ECOLLET;
+	} else {
+		/* printc("@\n"); */
+		/* printc("@ tail %d stat %d\n", ring->tail, rn->state); */
+		*err = -EBLOCK;
 	}
 	return ret;
 }
@@ -103,19 +117,20 @@ eos_pkt_collect(struct eos_ring *recv, struct eos_ring *sent)
 {
 	struct eos_ring_node *rn, *sn;
 
+collect:
 	rn = GET_RING_NODE(recv, recv->head & EOS_RING_MASK);
 	sn = GET_RING_NODE(sent, sent->head & EOS_RING_MASK);
-	if (rn->state == PKT_EMPTY && sn->state == PKT_SENT_DONE) {
-		/* printc("dbg pkt col rr %p sr %p rh %d sh %d\n", recv, sent, recv->head & EOS_RING_MASK, sent->head & EOS_RING_MASK); */
+	if ((rn->state == PKT_EMPTY || rn->state == PKT_RECV_DONE) && sn->state == PKT_SENT_DONE) {
 		rn->pkt     = sn->pkt;
 		rn->pkt_len = EOS_PKT_MAX_SZ;
-		rn->state   = PKT_FREE;
+		sn->state   = PKT_EMPTY;
 		ps_cc_barrier();
 		sn->pkt     = NULL;
 		sn->pkt_len = 0;
-		sn->state   = PKT_EMPTY;
+		rn->state   = PKT_FREE;
 		recv->head++;
 		sent->head++;
+		goto collect;
 	}
 }
 

@@ -92,12 +92,17 @@ ToRing::cleanup(CleanupStage stage)
 void
 ToRing::push(int port, Packet *p)
 {
+       struct eos_ring *input_ring = get_input_ring((void *)shmem_addr);
        struct eos_ring *output_ring = get_output_ring((void *)shmem_addr);
        int r;
 
+       assert(p);
        r = eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
        while (r) {
-	       click_block();
+	       if (r == -EBLOCK) { printc("Q\n"); click_block();}
+	       else if (r == -ECOLLET) { printc("E\n"); eos_pkt_collect(input_ring, output_ring);}
+	       // if (r == -EBLOCK) click_block();
+	       // else if (r == -ECOLLET) eos_pkt_collect(input_ring, output_ring);
 	       r = eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
        }
        p->kill();
