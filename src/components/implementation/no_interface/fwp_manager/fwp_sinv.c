@@ -144,14 +144,13 @@ nf_entry(word_t *ret2, word_t *ret3, int op, word_t arg3, word_t arg4)
 	}
 	case NF_BLOCK:
 	{
-		sl_thd_block(0);
-		/* sl_thd_yield(0); */
+		/* sl_thd_block(0); */
+		sl_thd_yield(0);
 		break;
 	}
 	default:
 	{
 		assert(0);
-
 		ret1 = error;
 	}
 	}

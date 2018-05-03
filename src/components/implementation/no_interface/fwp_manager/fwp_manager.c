@@ -429,15 +429,23 @@ fwp_init(void)
 static void
 fwp_mgr_loop()
 {
-	while (1) {
+	unsigned long long start, end;
+
+	start = end = ps_tsc();
+	while (end - start < (unsigned long long)8 * (unsigned long long)60 * (unsigned long long)24 * (unsigned long long)200000000) {
 		/* TODO: clean up chain, put them back to cache */
 		/* TODO: if not enough fwp in cache, fork more */
-		/* fwp_clean_chain(&chains[0]); */;
+		/* fwp_clean_chain(&chains[0]); */
+		__asm__ __volatile__("rep;nop": : :"memory");
+		end = ps_tsc();
 	}
+	assert(0);
 }
 
 static struct nf_chain *fwp_create_chain_bridge();
-static struct nf_chain *fwp_create_chain1(void); /* create a chain of two NFs linked by MCA */
+static struct nf_chain *fwp_create_chain_firewall(void); /* create a chain of two NFs linked by MCA */
+static struct nf_chain *fwp_create_chain_multi_tency(int len); /* mutilple mirror nf connect by MCA */
+static struct nf_chain *fwp_create_chain_multi_tency_share(int len); /* a chain with all shared nf */
 static struct nf_chain *fwp_create_chain2(int conf_file1, int conf_file2); /* create a chain of two NFs linked by shmem */
 
 void
@@ -445,7 +453,7 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	 unsigned long comp_info_offset, vaddr_t sinv_next_call)
 {
 	struct nf_chain *chain;
-	int i, j;
+	int i, j, tot=0;
 
 	t_seg = text_seg;
 	d_seg = data_seg;
@@ -454,15 +462,17 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	shmem_inv_addr = sinv_next_call;
 
 	fwp_init();
+	mca_init(CURR_CINFO());
+	ninf_init();
 	cos_faa(&init_core_done, 1);
 	while (init_core_done != NF_MIN_CORE) {
 		__asm__ __volatile__("rep;nop": : :"memory");
 	}
 
-
-	/* chain = fwp_create_chain1(); */
-	/* chain = fwp_create_chain2(3, 4); */
-	chain = fwp_create_chain_bridge();
+	/* chain = fwp_create_chain_bridge(); */
+	/* chain = fwp_create_chain_firewall(); */
+	chain = fwp_create_chain_multi_tency(1);
+	/* chain = fwp_create_chain_multi_tency_share(6); */
 	fwp_allocate_chain(chain, 1, 0);
 
 	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
@@ -483,6 +493,43 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 }
 
 
+
+static inline struct click_info *
+__copy_nf(int config)
+{
+	struct click_info *nf1;
+	int nfid, ncid, shmemid;
+
+	nfid = next_nfid++;
+	nf1 = &chld_infos[nfid];
+	nf1->next = NULL;
+	nf1->conf_file_idx = config;
+	nf1->nf_id = nfid;
+	nf1->nd_thd = 1;
+	nf1->nd_ring = 1;
+	nf1->nd_sinv = 0;
+	nf1->data_seg = &templates[next_template_id++];
+	return nf1;
+}
+
+static inline struct click_info *
+__share_nf(int config)
+{
+	struct click_info *nf2;
+	int nfid, ncid, shmemid;
+
+	nfid = next_nfid++;
+	assert(nfid < EOS_MAX_NF_NUM);
+	nf2 = &chld_infos[nfid];
+	nf2->next = NULL;
+	nf2->conf_file_idx = config;
+	nf2->nf_id = nfid;
+	nf2->nd_thd = 0;
+	nf2->nd_ring = 0;
+	nf2->nd_sinv = 1;
+	nf2->data_seg = &templates[next_template_id++];
+	return nf2;
+}
 
 /* create a chain with single bridge nf */
 static struct nf_chain *
@@ -515,7 +562,7 @@ fwp_create_chain_bridge()
 }
 
 static struct nf_chain *
-fwp_create_chain1(void)
+fwp_create_chain_firewall(void)
 {
 	int nfid, ncid, shmemid, temid;
 	struct click_info *nf1, *nf2;
@@ -540,7 +587,7 @@ fwp_create_chain1(void)
 	nfid = next_nfid++;
 	nf2 = &chld_infos[nfid];
 	nf2->next = NULL;
-	nf2->conf_file_idx = 1;
+	nf2->conf_file_idx = 2;
 	nf2->nf_id = nfid;
 	nf2->nd_thd = 1;
 	nf2->nd_ring = 1;
@@ -590,6 +637,81 @@ fwp_create_chain2(int conf_file1, int conf_file2)
 
 	ret_chain->first_nf = nf1;
 	ret_chain->last_nf = nf2;
+
+	return ret_chain;
+}
+
+static struct nf_chain *
+fwp_create_chain_multi_tency(int len)
+{
+	int nfid, ncid, shmemid, temid, i;
+	struct click_info *nf1, *nf2;
+	struct nf_chain *ret_chain;
+
+	ncid = next_chain_id++;
+	ret_chain = &chains[ncid];
+	ret_chain->chain_id = ncid;
+	ret_chain->tot_nf = len;
+	ret_chain->active_nf = 0;
+	ret_chain->next = NULL;
+
+	nf2 = nf1 = __copy_nf(3);
+	ret_chain->first_nf = nf1;
+	for(i=1; i<len; i++) {
+		nf2 = __copy_nf(3);
+		nf1->next = nf2;
+		nf1 = nf2;
+	}
+	nf2->next = NULL;
+	ret_chain->last_nf = nf2;
+
+	return ret_chain;
+}
+
+static struct nf_chain *
+fwp_create_chain_multi_tency_share(int len)
+{
+	int nfid, ncid, shmemid, temid, i;
+	struct click_info *nf1, *nf2;
+	struct nf_chain *ret_chain;
+
+	ncid = next_chain_id++;
+	ret_chain = &chains[ncid];
+	ret_chain->chain_id = ncid;
+	ret_chain->tot_nf = len;
+	ret_chain->active_nf = 0;
+	ret_chain->next = NULL;
+
+	nfid = next_nfid++;
+	nf1 = &chld_infos[nfid];
+	nf1->conf_file_idx = 0;
+	nf1->nf_id = nfid;
+	nf1->nd_thd = 1;
+	nf1->nd_ring = 1;
+	nf1->nd_sinv = 1;
+	nf1->data_seg = &templates[next_template_id++];
+	ret_chain->first_nf = nf1;
+	printc("dbg 1\n");
+
+	for(i=1; i<len-1; i++) {
+		nf2 = __share_nf(1);
+	printc("dbg 2\n");
+		nf1->next = nf2;
+		nf1 = nf2;
+	}
+
+	nfid = next_nfid++;
+	nf2 = &chld_infos[nfid];
+	nf2->conf_file_idx = 2;
+	nf2->nf_id = nfid;
+	nf2->nd_thd = 0;
+	nf2->nd_ring = 0;
+	nf2->nd_sinv = 0;
+	nf2->data_seg = &templates[next_template_id++];
+	nf1->next = nf2;
+	nf2->next = NULL;
+	ret_chain->last_nf = nf2;
+	printc("dbg 3\n");
 
 	return ret_chain;
 }

@@ -475,13 +475,11 @@ cos_init(void)
 		sl_init(SL_MIN_PERIOD_US);
 		switch (cur_coreid) {
 		case MCA_CORE:
-			mca_init(CURR_CINFO());
 			cos_faa(&init_core_done, 1);
 			printc("mca_run core %d\n", MCA_CORE);
 			mca_run(NULL);
 			assert(0);
 		case NINF_RX_CORE:
-			ninf_init();
 			ninf_rx_init();
 			rx_init_done = 1;
 			printc("ninf_rx_loop core %d\n", NINF_RX_CORE);
