@@ -154,8 +154,6 @@ ninf_tx_out_batch()
 }
 
 static inline int
-
-static inline int
 ninf_tx_process(struct eos_ring *nf_ring)
 {
 	int ret = 0, r;

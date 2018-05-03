@@ -185,6 +185,7 @@ static inline void
 ninf_rx_proc_mbuf(struct rte_mbuf *mbuf, int in_port)
 {
 	struct eos_ring *ninf_ring;
+	int r;
 
 	assert(mbuf);
 
@@ -197,7 +198,6 @@ ninf_rx_proc_mbuf(struct rte_mbuf *mbuf, int in_port)
 	do {
 		ninf_pkt_collect(ninf_ring);
 		r = eos_pkt_send(ninf_ring, rte_pktmbuf_mtod(mbuf, void *), rte_pktmbuf_data_len(mbuf), IN2OUT_PORT(in_port));
-		if (dbg_c && (dbg_c++) % 5000000 == 0) printc("P\n");
 	} while (r == -ECOLLET);
 	/* drop pkts */
 	if (r) {

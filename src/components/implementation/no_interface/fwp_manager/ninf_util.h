@@ -70,7 +70,6 @@ ninf_pkt_is_ipv4(struct rte_mbuf* pkt)
 }
 
 static inline int
-static inline int
 ninf_fill_key(struct pkt_ipv4_5tuple *key, struct rte_mbuf *pkt)
 {
         struct ipv4_hdr *ipv4_hdr;
