@@ -6,6 +6,9 @@
 #include "eos_sched.h"
 
 #define NO_FLOW_ISOLATION
+/* #define PER_FLOW_CHAIN */
+/* #define SINGLE_PING_CHURN_TEST */
+/* #define FIXED_NF_CHAIN */
 #define DPDK_PKT_OFF 256
 #define NF_PER_CORE_BATCH 1
 #define DPDK_PKT2MBUF(pkt) ((struct rte_mbuf *)((void *)(pkt) - DPDK_PKT_OFF))
@@ -42,7 +45,9 @@ ninf_flow2_core(struct rte_mbuf *mbuf, struct pkt_ipv4_5tuple *key, uint32_t rss
 {
 	int r;
 
+#ifdef NO_FLOW_ISOLATION
 	return NF_MIN_CORE;
+#else
 	r = major_core_id;
 	minor_core_id++;
 	if (minor_core_id == NF_PER_CORE_BATCH) {
@@ -51,6 +56,7 @@ ninf_flow2_core(struct rte_mbuf *mbuf, struct pkt_ipv4_5tuple *key, uint32_t rss
 	}
 	if (major_core_id == NF_MAX_CORE) major_core_id = NF_MIN_CORE;
 	return r;
+#endif
 }
 
 static inline struct eos_ring *
@@ -112,9 +118,24 @@ ninf_get_nf_ring(struct rte_mbuf *mbuf)
 		global_chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE);
 		assert(global_chain);
 		global_rx_out = ninf_setup_new_chain(global_chain);
+		fix_rx_outs[chain_idx++] = global_rx_out;
 	}
 	return global_rx_out;
-#else
+#endif
+
+#ifdef SINGLE_PING_CHURN_TEST
+	int cid;
+	struct eos_ring *ninf_ring;
+	struct nf_chain *ping_chain;
+
+	cid = ninf_flow2_core(NULL, NULL, 0);
+	ping_chain = fwp_chain_get(FWP_CHAIN_CLEANED, cid);
+	assert(ping_chain);
+	ninf_ring = ninf_setup_new_chain(ping_chain);
+	return ninf_ring;
+#endif
+
+#ifdef PER_FLOW_CHAIN
 	uint32_t rss;
 	struct eos_ring *ninf_ring;
 	struct pkt_ipv4_5tuple pkt_key;
@@ -125,9 +146,39 @@ ninf_get_nf_ring(struct rte_mbuf *mbuf)
 	if (!ninf_ring) {
 		ninf_proc_new_flow(mbuf, &pkt_key, rss);
 		ninf_ring = ninf_flow_tbl_lkup(mbuf, &pkt_key, rss);
+		fix_rx_outs[chain_idx++] = ninf_ring;
 	}
 	return ninf_ring;
 #endif
+
+#ifdef FIXED_NF_CHAIN
+	uint32_t rss;
+	struct eos_ring *ninf_ring;       
+	struct nf_chain *fix_chain;
+	struct pkt_ipv4_5tuple pkt_key;
+	int cid;
+
+	ninf_fill_key_symmetric(&pkt_key, mbuf);
+	rss = ninf_rss(&pkt_key);
+	ninf_ring = ninf_flow_tbl_lkup(mbuf, &pkt_key, rss);
+
+	if (!ninf_ring) {
+		if (!fix_rx_outs[chain_idx]) {
+			cid = ninf_flow2_core(NULL, NULL, 0);
+			fix_chain = fwp_chain_get(FWP_CHAIN_CLEANED, cid);
+			assert(fix_chain);
+
+			fix_rx_outs[chain_idx] = ninf_ring = ninf_setup_new_chain(fix_chain);
+		} else {
+			ninf_ring = fix_rx_outs[chain_idx];
+		}
+		chain_idx = (chain_idx + 1) % EOS_MAX_FLOW_NUM;
+		ninf_flow_tbl_add(&pkt_key, rss, ninf_ring);
+		ninf_ring = ninf_flow_tbl_lkup(mbuf, &pkt_key, rss);
+		assert(ninf_ring);    
+        }
+	return ninf_ring;
+#endif   
 }
 
 static inline void

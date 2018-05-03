@@ -7,11 +7,49 @@
 #define RX_MBUF_DATA_SIZE 2048
 #define RX_MBUF_SIZE (RX_MBUF_DATA_SIZE + RTE_PKTMBUF_HEADROOM + sizeof(struct rte_mbuf))
 
+/*
+ * RX and TX Prefetch, Host, and Write-back threshold values should be
+ * carefully set for optimal performance. Consult the network
+ * controller's datasheet and supporting DPDK documentation for guidance
+ * on how these parameters should be set.
+ */
+#define RX_PTHRESH 8 /* Default values of RX prefetch threshold reg. */
+#define RX_HTHRESH 8 /* Default values of RX host threshold reg. */
+#define RX_WTHRESH 4 /* Default values of RX write-back threshold reg. */
+
+/*
+ * These default values are optimized for use with the Intel(R) 82599 10 GbE
+ * Controller and the DPDK ixgbe PMD. Consider using other values for other
+ * network controllers and/or network drivers.
+ */
+#define TX_PTHRESH 36 /* Default values of TX prefetch threshold reg. */
+#define TX_HTHRESH 0  /* Default values of TX host threshold reg. */
+#define TX_WTHRESH 0 /* Default values of TX write-back threshold reg. */
 extern struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];
 extern struct rte_mempool *rx_mbuf_pool;
 
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = { .max_rx_pkt_len = ETHER_MAX_LEN }
+};
+
+static const struct rte_eth_rxconf rx_conf = {
+        .rx_thresh = {
+                .pthresh = RX_PTHRESH,
+                .hthresh = RX_HTHRESH,
+                .wthresh = RX_WTHRESH,
+        },
+        .rx_free_thresh = 32,
+};
+
+static const struct rte_eth_txconf tx_conf = {
+        .tx_thresh = {
+                .pthresh = TX_PTHRESH,
+                .hthresh = TX_HTHRESH,
+                .wthresh = TX_WTHRESH,
+        },
+        .tx_free_thresh = TX_RING_SIZE - 8/* - TX_RING_SIZE / 4 */,
+        .tx_rs_thresh   = 0,
+        .txq_flags      = 0,
 };
 
 uint8_t rss_symmetric_key[40] = { 0x6d, 0x5a, 0x6d, 0x5a,
@@ -35,7 +73,7 @@ static inline int
 port_init(uint8_t port, struct rte_mempool *mbuf_pool)
 {
 	struct rte_eth_conf port_conf = port_conf_default;
-	const uint16_t rx_rings = 1, tx_rings = 1;
+	const uint16_t rx_rings = 1, tx_rings = 2;
 	uint16_t nb_rxd = RX_RING_SIZE;
 	uint16_t nb_txd = TX_RING_SIZE;
 	int retval;
@@ -53,7 +91,7 @@ port_init(uint8_t port, struct rte_mempool *mbuf_pool)
 	/* Allocate and set up 1 RX queue per Ethernet port. */
 	for (q = 0; q < rx_rings; q++) {
 		retval = rte_eth_rx_queue_setup(port, q, nb_rxd,
-				rte_eth_dev_socket_id(port), NULL, mbuf_pool);
+				rte_eth_dev_socket_id(port), &rx_conf, mbuf_pool);
 		if (retval < 0) return retval;
 	}
 
