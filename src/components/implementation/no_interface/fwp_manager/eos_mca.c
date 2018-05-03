@@ -44,7 +44,7 @@ mca_copy(void *dst, void *src, int sl)
 	memcpy(dst, src, sl);
 }
 
-static inline void
+static inline int
 mca_process(struct mca_conn *conn)
 {
 	struct eos_ring *src, *dst;
@@ -54,16 +54,19 @@ mca_process(struct mca_conn *conn)
 	src = conn->src_ring;
 	dst = conn->dst_ring;
 	sn  = GET_RING_NODE(src, src->mca_head & EOS_RING_MASK);
-	if (sn->state != PKT_SENT_READY) return ;
+	if (sn->state != PKT_SENT_READY) return -1;
 	assert(sn->pkt);
 	assert(sn->pkt_len);
-	fh  = cos_faa(&(dst->free_head), 1);
+	/* fh  = cos_faa(&(dst->free_head), 0); */
+	fh  = dst->free_head;
 	rn  = GET_RING_NODE(dst, fh & EOS_RING_MASK);
-	if (rn->state != PKT_FREE) return;
+	if (rn->state != PKT_FREE) return -1;
+	dst->free_head++;
 	assert(rn->pkt);
 	mca_copy(rn->pkt, sn->pkt, sn->pkt_len);
 	rn->pkt_len = sn->pkt_len;
 	rn->port    = sn->port;
+	ps_cc_barrier();
 	sn->state   = PKT_SENT_DONE;
 	rn->state   = PKT_RECV_READY;
 	src->mca_head++;
@@ -74,6 +77,7 @@ mca_process(struct mca_conn *conn)
 	if (!fh) {
 		eos_thd_wakeup(dst->coreid, dst->thdid);
 	}
+	return 0;
 }
 
 static inline void

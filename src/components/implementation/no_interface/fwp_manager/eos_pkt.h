@@ -4,6 +4,10 @@
 #include <util.h>
 #include "eos_ring.h"
 
+
+#ifndef ps_cc_barrier
+#define ps_cc_barrier() __asm__ __volatile__ ("" : : : "memory")
+#endif
 /* static inline void */
 /* dbg_state(struct eos_ring *ring) */
 /* { */
@@ -28,6 +32,7 @@ eos_pkt_allocate(struct eos_ring *ring, int len)
 	if (rn->state != PKT_FREE) return NULL;
 	ret       = rn->pkt;
 	rn->state = PKT_EMPTY;
+	ps_cc_barrier();
 	rn->pkt   = NULL;
 	return ret;
 }
@@ -42,6 +47,7 @@ eos_pkt_free(struct eos_ring *ring, void *pkt)
 	if (n->state == PKT_EMPTY) {
 		n->pkt     = pkt;
 		n->pkt_len = EOS_PKT_MAX_SZ;
+		ps_cc_barrier();
 		n->state   = PKT_FREE;
 		ring->head++;
 	}
@@ -57,6 +63,7 @@ eos_pkt_send(struct eos_ring *ring, void *pkt, int len, int port)
 	rn->pkt     = pkt;
 	rn->pkt_len = len;
 	rn->port    = port;
+	ps_cc_barrier();
 	rn->state   = PKT_SENT_READY;
 	ring->tail++;
 	/* printc("S\n"); */
@@ -83,6 +90,7 @@ eos_pkt_recv(struct eos_ring *ring, int *len, int *port)
 		*port       = rn->port;
 		rn->pkt     = NULL;
 		rn->pkt_len = 0;
+		ps_cc_barrier();
 		rn->state   = PKT_EMPTY;
 		ring->tail++;
 		/* cos_faa(&(ring->pkt_cnt), -1); */
@@ -102,6 +110,7 @@ eos_pkt_collect(struct eos_ring *recv, struct eos_ring *sent)
 		rn->pkt     = sn->pkt;
 		rn->pkt_len = EOS_PKT_MAX_SZ;
 		rn->state   = PKT_FREE;
+		ps_cc_barrier();
 		sn->pkt     = NULL;
 		sn->pkt_len = 0;
 		sn->state   = PKT_EMPTY;

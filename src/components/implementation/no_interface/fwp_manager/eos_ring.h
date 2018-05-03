@@ -68,13 +68,13 @@ eos_rings_init(void *rh)
 
 	assert(((unsigned long)rh & (~PAGE_MASK)) == 0);
 
-	memset(rh, 0, sizeof(struct eos_ring));
-
 	input_ring = get_input_ring(rh);
+	memset(input_ring, 0, sizeof(struct eos_ring));
 	input_ring->ring = (struct eos_ring_node *)((char *)input_ring + sizeof(struct eos_ring));
 	input_ring->ring_phy_addr = cos_map_virt_to_phys(rh);
 
 	output_ring = get_output_ring(rh);
+	memset(output_ring, 0, sizeof(struct eos_ring));
 	output_ring->ring = (struct eos_ring_node *)((char *)output_ring + sizeof(struct eos_ring));
 	output_ring->ring_phy_addr = input_ring->ring_phy_addr + ((char *)output_ring - (char *)rh);
 
