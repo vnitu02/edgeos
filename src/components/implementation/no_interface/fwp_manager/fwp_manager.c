@@ -96,8 +96,8 @@ _fwp_fork(struct cos_compinfo *parent_cinfo_l, struct click_info *fork_info,
 	unsigned long size;
 
 	//printc("forking new click component\n");
-	ckct = cos_captbl_alloc_at(parent_cinfo_l, BOOT_CAPTBL_FIX_CAPTBL);
-	assert(ckct == BOOT_CAPTBL_FIX_CAPTBL);
+	ckct = cos_captbl_alloc(parent_cinfo_l);
+	assert(ckct);
 
 	ckpt = cos_pgtbl_alloc(parent_cinfo_l);
 	assert(ckpt);
@@ -220,9 +220,8 @@ _fwp_fork_cont(struct cos_compinfo *parent_cinfo, struct click_info *chld_info,
 
 	ckct = child_cinfo->captbl_cap;
 	ckpt = child_cinfo->pgtbl_cap;
-	ckcc = cos_comp_alloc_at(parent_cinfo, ckct, ckpt,
-				 (vaddr_t) ci->cos_upcall_entry, BOOT_CAPTBL_FIX_COMP);
-	assert(ckcc == BOOT_CAPTBL_FIX_COMP);
+	ckcc = cos_comp_alloc(parent_cinfo, ckct, ckpt, (vaddr_t) ci->cos_upcall_entry);
+	assert(ckcc);
 	child_cinfo->comp_cap = ckcc;
 
 	if (chld_info->nd_thd || chld_info->conf_file_idx != -1) {
@@ -257,8 +256,8 @@ static void
 _fwp_for_drop_cap(struct cos_compinfo *parent_cinfo)
 {
 	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_SINV);
-	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_CAPTBL);
-	cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_COMP);
+	/* cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_CAPTBL); */
+	/* cos_cap_drop(parent_cinfo, BOOT_CAPTBL_FIX_COMP); */
 }
 
 /*
@@ -469,15 +468,15 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 		__asm__ __volatile__("rep;nop": : :"memory");
 	}
 
-	/* chain = fwp_create_chain_bridge(); */
+	chain = fwp_create_chain_bridge();
 	/* chain = fwp_create_chain_firewall(); */
-	chain = fwp_create_chain_multi_tency(1);
+	/* chain = fwp_create_chain_multi_tency(1); */
 	/* chain = fwp_create_chain_multi_tency_share(6); */
 	fwp_allocate_chain(chain, 1, 0);
 
 	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
 		for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
-			printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier);
+			/* printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier); */
 			fwp_allocate_chain(chain, 0, i);
 		}
 	}
