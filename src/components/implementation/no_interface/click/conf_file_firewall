@@ -1,0 +1,32 @@
+define(
+	$lanIP 192.168.1.0/24,
+	$core_id 15,
+	$mem_channel 4,
+	$service_id 1,
+	$action 2,	// 0(drop), 1(next), 2(tonf), 3(out)
+	$destination 2,
+	$queueSize 1024,
+        $burst 1,
+	$nicport 0,
+);
+
+source :: FromRing
+sink  :: ToRing
+
+classifier :: Classifier (
+	      12/0806, //ARP Packets
+	      	       12/0800, //IP Packets
+		       		-     //Other
+);
+
+fw :: IPFilter (
+   allow dst $lanIP,
+);
+
+source -> classifier
+classifier[0] -> CheckARPHeader(14) -> sink 
+classifier[1] -> CheckIPHeader(14) 
+	            -> fw 
+       		          //-> IPPrint("Allow", LENGTH true)
+			        -> sink
+classifier[2] -> Discard
