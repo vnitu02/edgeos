@@ -47,6 +47,7 @@
 #include <stdio.h>
 
 extern "C" {
+       #include "rdtsc.h" 
        #include <eos_ring.h>
        #include <eos_pkt.h>
 	extern void click_block();
@@ -95,8 +96,13 @@ ToRing::push(int port, Packet *p)
        struct eos_ring *input_ring = get_input_ring((void *)shmem_addr);
        struct eos_ring *output_ring = get_output_ring((void *)shmem_addr);
        int r;
+       unsigned long long start;
+       unsigned long long *data = (unsigned long long *)p->data();
 
        assert(p);
+
+       *data = rdtsc(); 
+
        r = eos_pkt_send(output_ring, (void *)p->data(), p->length(), p->port());
        while (r) {
 	       if (r == -EBLOCK) { printc("Q\n"); click_block();}

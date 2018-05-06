@@ -5,14 +5,14 @@
 #include "fwp_chain_cache.h"
 #include "eos_sched.h"
 
-#define NO_FLOW_ISOLATION
+//#define NO_FLOW_ISOLATION
 /* #define PER_FLOW_CHAIN */
-/* #define SINGLE_PING_CHURN_TEST */
+#define SINGLE_PING_CHURN_TEST
 /* #define FIXED_NF_CHAIN */
 #define DPDK_PKT_OFF 256
 #define NF_PER_CORE_BATCH 1
 #define DPDK_PKT2MBUF(pkt) ((struct rte_mbuf *)((void *)(pkt) - DPDK_PKT_OFF))
-#define IN2OUT_PORT(port) (!(port))
+#define IN2OUT_PORT(port) ((port))
 
 struct rte_mempool *rx_mbuf_pool;
 struct eos_ring *ninf_ft_data[EOS_MAX_FLOW_NUM];

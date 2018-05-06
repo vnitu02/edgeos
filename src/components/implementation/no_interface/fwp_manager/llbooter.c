@@ -480,6 +480,9 @@ cos_init(void)
 			mca_run(NULL);
 			assert(0);
 		case NINF_RX_CORE:
+                     cos_faa(&init_core_done, 1);
+                     while (1)
+                            __asm__ __volatile__("rep;nop": : :"memory");
 			ninf_rx_init();
 			rx_init_done = 1;
 			printc("ninf_rx_loop core %d\n", NINF_RX_CORE);
@@ -487,6 +490,9 @@ cos_init(void)
 			ninf_rx_loop();
 			assert(0);
 		case NINF_TX_CORE:
+                     cos_faa(&init_core_done, 1);
+                     while (1)
+                            __asm__ __volatile__("rep;nop": : :"memory");
 			while (!rx_init_done) {
 				__asm__ __volatile__("rep;nop": : :"memory");
 			}

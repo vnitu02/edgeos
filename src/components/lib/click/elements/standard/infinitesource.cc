@@ -29,9 +29,12 @@
 #include <click/handlercall.hh>
 
 extern "C"{
+       #include"rdtsc.h"
        #include <eos_ring.h>
        #include <eos_pkt.h>
 }
+
+static unsigned long long tsc = 0;
 
 CLICK_DECLS
 
@@ -138,6 +141,17 @@ InfiniteSource::run_task(Task *)
        Packet *p = Packet::make((unsigned char*) pkt, _data.length(), NULL, NULL);
 	if (_timestamp)
 	    p->timestamp_anno().assign_now();
+
+       if (tsc == 0)
+              tsc = rdtsc();
+       else {
+              unsigned long long tsc2 = rdtsc();
+              while (tsc2 - tsc  < 2400 * 10000){
+                     tsc2 = rdtsc();
+              }
+              tsc = 0;
+       }
+
 	output(0).push(p);
     }
     _count += n;

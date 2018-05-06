@@ -4,7 +4,7 @@ IMPLDIR=$(CDIR)/implementation/
 INTERDIR=$(CDIR)/interface/
 LIBDIR=$(CDIR)/lib/
 MANDITORY_LIB=cos_manditory.o
-CINC=-I./ -I$(CDIR)/include/ -I$(SHAREDINC) -I$(CDIR)/lib/ck/include -I$(CDIR)/lib/ps/ -I$(CDIR)/lib/libcxx/include -I$(CDIR)/lib/click -I$(CDIR)/lib/click/include
+CINC=-I./ -I$(CDIR)/include/ -I$(SHAREDINC) -I$(CDIR)/lib/ck/include -I$(CDIR)/lib/ps/ -I$(CDIR)/lib/libcxx/include -I$(CDIR)/lib/click -I$(CDIR)/lib/click/include -I$(CDIR)/implementation/no_interface/fwp_manager
 
 MUSLDIR=$(CDIR)/lib/musl-1.1.11
 MUSLBIN=$(MUSLDIR)/bin

@@ -50,7 +50,8 @@
 #include <eos_pkt.h>
 
 extern "C"{
-	extern void click_block();
+#include "rdtsc.h"
+extern void click_block();
 }
 
 CLICK_DECLS
@@ -100,6 +101,9 @@ FromRing::run_task(Task *)
        void *pkt;
        struct eos_ring *input_ring = get_input_ring((void *)shmem_addr);
        struct eos_ring *ouput_ring = get_output_ring((void *)shmem_addr);
+       unsigned long long start, end;
+       
+       end = rdtsc();
 
        pkt = eos_pkt_recv(input_ring, &len, &port, &err);
        while (!pkt) {
@@ -109,6 +113,10 @@ FromRing::run_task(Task *)
 	       // if (err == -ECOLLET) printc("F\n");
 	       pkt = eos_pkt_recv(input_ring, &len, &port, &err);
        }
+
+       start = *(unsigned long long *)pkt;
+       printf("difffff: %llu\n", end - start);
+
        p = Packet::make((unsigned char*) pkt, len, NULL, NULL, port);
        output(0).push(p);
        c++;

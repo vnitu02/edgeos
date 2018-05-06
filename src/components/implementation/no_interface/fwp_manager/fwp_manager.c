@@ -294,7 +294,8 @@ fwp_chain_activate(struct nf_chain *chain)
 		if (!new_nf || !new_nf->nd_ring) continue;
 		out1 = get_output_ring((void *)this_nf->shmem_addr);
 		in2  = get_input_ring((void *)new_nf->shmem_addr);
-		conn = mca_conn_create(out1, in2);
+		printc("conn create\n");
+              conn = mca_conn_create(out1, in2);
 	}
 	/* TODO: activate threads */
 	list_for_each_nf(this_nf, chain) {
@@ -375,6 +376,7 @@ fwp_allocate_chain(struct nf_chain *chain, int is_template, int coreid)
 
 		list_for_each_nf(this_nf, chain) {
 			nfid                  = next_nfid++;
+                     printc("%d < %d\n", nfid, EOS_MAX_NF_NUM);
 			assert(nfid < EOS_MAX_NF_NUM);
 			new_nf                = &chld_infos[nfid];
 			*last_nf              = new_nf;
@@ -468,12 +470,16 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 		__asm__ __volatile__("rep;nop": : :"memory");
 	}
 
-	chain = fwp_create_chain_bridge();
+       chain = fwp_create_chain2(0,1);
+	//chain = fwp_create_chain_bridge();
 	/* chain = fwp_create_chain_firewall(); */
 	/* chain = fwp_create_chain_multi_tency(1); */
 	/* chain = fwp_create_chain_multi_tency_share(6); */
 	fwp_allocate_chain(chain, 1, 0);
-
+	fwp_allocate_chain(chain, 0, NF_MIN_CORE);
+       chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE);
+       fwp_chain_activate(chain);
+#if 0
 	for(i=NF_MIN_CORE; i<NF_MAX_CORE; i++) {
 		for(j=0; j<EOS_MAX_CHAIN_NUM_PER_CORE; j++) {
 			/* printc("core %d j %d tot %d cap fronteers: %lu %lu heap %x untype %x fonter %x\n", i, j, j + (i-NF_MIN_CORE)*EOS_MAX_CHAIN_NUM_PER_CORE, CURR_CINFO()->cap_frontier, CURR_CINFO()->caprange_frontier, CURR_CINFO()->vas_frontier, CURR_CINFO()->mi.untyped_ptr, CURR_CINFO()->mi.untyped_frontier); */
@@ -488,7 +494,8 @@ fwp_test(struct mem_seg *text_seg, struct mem_seg *data_seg, vaddr_t start_addr,
 	/* } */
 	/* chain = fwp_chain_get(FWP_CHAIN_CLEANED, NF_MIN_CORE); */
 	/* fwp_chain_activate(chain); */
-	fwp_mgr_loop();
+#endif
+       fwp_mgr_loop();
 }
 
 
@@ -628,8 +635,8 @@ fwp_create_chain2(int conf_file1, int conf_file2)
 	nf2->next = NULL;
 	nf2->conf_file_idx = conf_file2;
 	nf2->nf_id = nfid;
-	nf2->nd_thd = 0;
-	nf2->nd_ring = 0;
+	nf2->nd_thd = 1;
+	nf2->nd_ring = 1;
 	nf2->nd_sinv = 0;
 	nf2->data_seg = &templates[next_template_id++];
 	nf1->next = nf2;
